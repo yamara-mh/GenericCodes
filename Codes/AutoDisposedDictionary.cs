@@ -1,7 +1,7 @@
-using System;
-using System.Linq;
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System;
+using System.Collections;
 
 namespace Yamara
 {
@@ -56,12 +56,12 @@ namespace Yamara
         {
             get
             {
-                _history[key] = GetNextHistoryCount();
+                SetHistoryCount(key);
                 return _items[key];
             }
             set
             {
-                _history[key] = GetNextHistoryCount();
+                SetHistoryCount(key);
                 _items[key] = value;
             }
         }
@@ -77,14 +77,14 @@ namespace Yamara
         public void Add(TKey key, TValue item)
         {
             _items.Add(key, item);
-            _history[key] = GetNextHistoryCount();
+            SetHistoryCount(key);
             if (_items.Count > MaxItemsCount) RemoveInUnusedOrder(AutoDisposeCount);
         }
 
         public void Add(KeyValuePair<TKey, TValue> item)
         {
             _items.Add(item.Key, item.Value);
-            _history[item.Key] = GetNextHistoryCount();
+            SetHistoryCount(item.Key);
             if (_items.Count > MaxItemsCount) RemoveInUnusedOrder(AutoDisposeCount);
         }
 
@@ -95,7 +95,7 @@ namespace Yamara
         {
             if (_items.ContainsKey(key))
             {
-                _history[key] = GetNextHistoryCount();
+                SetHistoryCount(key);
                 value = _items[key];
                 return true;
             }
@@ -116,18 +116,20 @@ namespace Yamara
             Enumerable.Range(0, list.Count).ToList().ForEach(i => array[i] = list[i]);
         }
 
-        private uint GetNextHistoryCount()
+        private void SetHistoryCount(TKey key)
         {
-            _historyCount++;
+            _history[key] = ++_historyCount;
             if (_historyCount == uint.MaxValue)
             {
-                _historyCount -= int.MaxValue;
-                _history.Keys.ToList().ForEach(key => _history[key] -= int.MaxValue);
+                _historyCount = 0;
+                foreach (var k in _history.OrderBy(kv => kv.Value).Select(kv => kv.Key))
+                {
+                    _history[k] = ++_historyCount;
+                }
             }
-            return _historyCount;
         }
 
-#endregion
+        #endregion
 
 #region Remove & Clear
 
