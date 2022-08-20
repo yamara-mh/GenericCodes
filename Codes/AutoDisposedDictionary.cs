@@ -81,6 +81,15 @@ namespace Yamara
             if (_items.Count > MaxItemsCount) RemoveInUnusedOrder(AutoDisposeCount);
         }
 
+        public bool TryAdd(TKey key, TValue item)
+        {
+            if (ContainsKey(key)) return false;
+            _items.Add(key, item);
+            SetHistoryCount(key);
+            if (_items.Count > MaxItemsCount) RemoveInUnusedOrder(AutoDisposeCount);
+            return true;
+        }
+
         public void Add(KeyValuePair<TKey, TValue> item)
         {
             _items.Add(item.Key, item.Value);
