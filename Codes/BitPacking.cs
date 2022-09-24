@@ -226,40 +226,41 @@ namespace Network
     }
     public static class BitPakingQuaternion
     {
+        private static readonly int[] BitsByInt = { 10, 10, 10 };
         const float UnitByInt = 0.5f;
         const float ReciprocalUnitByInt = 2f;
-        const short FilterByInt = (1 << 10) - 1;
 
+        private static readonly int[] BitsByLong = { 20, 20, 20 };
         const float UnitByLong = 0.0005f;
         const float ReciprocalUnitByLong = 2000f;
-        const int FilterByLong = (1 << 20) - 1;
 
         public static int PackingToInt(this Quaternion quaternion) => EulerAnglesPackingToInt(quaternion.eulerAngles);
         public static int EulerAnglesPackingToInt(this Vector3 eulerAngles)
         {
-            return AssembleInt(
+            return BitPacking.BuildInt(BitsByInt,
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * ReciprocalUnitByInt),
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * ReciprocalUnitByInt),
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * ReciprocalUnitByInt));
         }
-        private static int AssembleInt(int x, int y, int z) => x << 20 | y << 10 | z;
-
         public static Quaternion ExpandToQuaternion(this int v)
-            => Quaternion.Euler((uint)(v >> 20) * UnitByInt, (uint)(v >> 10 & FilterByInt) * UnitByInt, (uint)(v & FilterByInt) * UnitByInt);
-
+        {
+            var array = BitPacking.Expand(BitsByInt, v);
+            return Quaternion.Euler(array[0] * UnitByInt, array[1] * UnitByInt, array[2] * UnitByInt);
+        }
 
         public static long PackingToLong(this Quaternion quaternion) => EulerAnglesPackingToLong(quaternion.eulerAngles);
         public static long EulerAnglesPackingToLong(this Vector3 eulerAngles)
         {
-            return AssembleLong(
-                (uint)Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * ReciprocalUnitByLong),
-                (uint)Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * ReciprocalUnitByLong),
-                (uint)Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * ReciprocalUnitByLong));
+            return BitPacking.BuildLong(BitsByLong,
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * ReciprocalUnitByLong),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * ReciprocalUnitByLong),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * ReciprocalUnitByLong));
         }
-        private static long AssembleLong(uint x, uint y, uint z) => 0L | x << 40 | y << 20 | z & FilterByLong;
-
         public static Quaternion ExpandToQuaternion(this long v)
-            => Quaternion.Euler((uint)(v >> 40) * UnitByLong, (uint)(v >> 20 & FilterByLong) * UnitByLong, (uint)(v & FilterByLong) * UnitByLong);
+        {
+            var array = BitPacking.Expand(BitsByLong, v);
+            return Quaternion.Euler(array[0] * UnitByLong, array[1] * UnitByLong, array[2] * UnitByLong);
+        }
     }
     public static class BitPackingColor
     {
