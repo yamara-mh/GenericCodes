@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Network
+namespace Utility.Network
 {
     public static class BitPacking
     {
@@ -65,12 +65,12 @@ namespace Network
             private readonly int[] Bits;
             private readonly bool Loop;
 
-            public Vec3ToLong(float unit = 0.001f, Vector3? center = null, bool loop = false, byte x = 22, byte y = 20)
+            public Vec3ToLong(float unit = 0.001f, Vector3? center = null, bool loop = false, byte x = 22, byte y = 20, byte z = 22)
             {
                 Unit = unit;
                 ReciprocalUnit = Mathf.RoundToInt(1f / unit);
                 Center = center.HasValue ? center.Value : Vector3.zero;
-                Bits = new int[] { -x, -y, -(64 - x - y) };
+                Bits = new int[] { -x, -y, -z };
                 Loop = loop;
             }
             public long Build(Vector3 vector)
@@ -78,16 +78,16 @@ namespace Network
                 vector -= Center;
                 if (Loop)
                 {
-                    return BitPacking.BuildLong(Bits,
+                    return BuildLong(Bits,
                         (long)(vector.x * ReciprocalUnit),
                         (long)(vector.y * ReciprocalUnit),
                         (long)(vector.z * ReciprocalUnit));
                 }
 
-                return BitPacking.BuildLong(Bits,
+                return BuildLong(Bits,
                     Clamp((long)(vector.x * ReciprocalUnit), Bits[0]),
-                    Clamp((long)(vector.x * ReciprocalUnit), Bits[1]),
-                    Clamp((long)(vector.x * ReciprocalUnit), Bits[2]));
+                    Clamp((long)(vector.y * ReciprocalUnit), Bits[1]),
+                    Clamp((long)(vector.z * ReciprocalUnit), Bits[2]));
             }
             public Vector3 Expand(long value)
             {
@@ -103,12 +103,12 @@ namespace Network
             private readonly int[] Bits;
             private readonly bool Loop;
 
-            public Vec3ToInt(float unit = 0.01f, Vector3? center = null, bool loop = false, byte x = 11, byte y = 10)
+            public Vec3ToInt(float unit = 0.01f, Vector3? center = null, bool loop = false, byte x = 11, byte y = 10, byte z = 11)
             {
                 Unit = unit;
                 ReciprocalUnit = Mathf.RoundToInt(1f / unit);
                 Center = center.HasValue ? center.Value : Vector3.zero;
-                Bits = new int[] { -x, -y, -(32 - x - y) };
+                Bits = new int[] { -x, -y, -z };
                 Loop = loop;
             }
             public int Build(Vector3 vector)
@@ -124,8 +124,8 @@ namespace Network
 
                 return BuildInt(Bits,
                     (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[0]),
-                    (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[1]),
-                    (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[2]));
+                    (int)Clamp((int)(vector.y * ReciprocalUnit), Bits[1]),
+                    (int)Clamp((int)(vector.z * ReciprocalUnit), Bits[2]));
             }
             public Vector3 Expand(int value)
             {
@@ -141,12 +141,12 @@ namespace Network
             private readonly int[] Bits;
             private readonly bool Loop;
 
-            public Vec2ToInt(float unit = 0.001f, Vector2? center = null, bool loop = false, byte x = 16)
+            public Vec2ToInt(float unit = 0.001f, Vector2? center = null, bool loop = false, byte x = 16, byte y = 16)
             {
                 Unit = unit;
                 ReciprocalUnit = Mathf.RoundToInt(1f / unit);
                 Center = center.HasValue ? center.Value : Vector2.zero;
-                Bits = new int[] { -x, -(32 - x) };
+                Bits = new int[] { -x, -y };
                 Loop = loop;
             }
             public int Build(Vector2 vector)
@@ -161,7 +161,7 @@ namespace Network
 
                 return BuildInt(Bits,
                     (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[0]),
-                    (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[1]));
+                    (int)Clamp((int)(vector.y * ReciprocalUnit), Bits[1]));
             }
             public Vector2 Expand(int value)
             {
@@ -177,12 +177,12 @@ namespace Network
             private readonly int[] Bits;
             private readonly bool Loop;
 
-            public Vec2ToShort(float unit = 0.001f, Vector2? center = null, bool loop = false, byte x = 8)
+            public Vec2ToShort(float unit = 0.001f, Vector2? center = null, bool loop = false, byte x = 8, byte y = 8)
             {
                 Unit = unit;
                 ReciprocalUnit = Mathf.RoundToInt(1f / unit);
                 Center = center.HasValue ? center.Value : Vector2.zero;
-                Bits = new int[] { -x, -(16 - x) };
+                Bits = new int[] { -x, -y };
                 Loop = loop;
             }
             public int Build(Vector2 vector)
@@ -208,8 +208,8 @@ namespace Network
         #endregion
 
         #region Utility
-        public static long MaxValue(int bit) => bit > 0 ? (1 << bit) : (1 << bit - 1) - 1;
-        public static long MinValue(int bit) => bit > 0 ? 0 : -(1 << bit - 1);
+        public static long MaxValue(int bit) => bit > 0 ? (1 << bit) - 1 : (1 << (-bit - 1)) - 1;
+        public static long MinValue(int bit) => bit > 0 ? 0 : -(1 << (-bit - 1));
         public static long Clamp(long value, int bit) => Math.Max(MinValue(bit), Math.Min(MaxValue(bit), value));
         #endregion
     }
