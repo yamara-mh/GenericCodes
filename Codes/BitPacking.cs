@@ -185,7 +185,7 @@ namespace Utility.Network
                 Bits = new int[] { -x, -y };
                 Loop = loop;
             }
-            public int Build(Vector2 vector)
+            public short Build(Vector2 vector)
             {
                 vector -= Center;
                 if (Loop)
@@ -195,7 +195,7 @@ namespace Utility.Network
                         (short)(vector.y * ReciprocalUnit));
                 }
 
-                return BuildInt(Bits,
+                return BuildShort(Bits,
                     (short)Clamp((short)(vector.x * ReciprocalUnit), Bits[0]),
                     (short)Clamp((short)(vector.x * ReciprocalUnit), Bits[1]));
             }
