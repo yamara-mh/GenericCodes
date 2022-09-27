@@ -197,7 +197,7 @@ namespace Utility.Network
 
                 return BuildShort(Bits,
                     (short)Clamp((short)(vector.x * ReciprocalUnit), Bits[0]),
-                    (short)Clamp((short)(vector.x * ReciprocalUnit), Bits[1]));
+                    (short)Clamp((short)(vector. * ReciprocalUnit), Bits[1]));
             }
             public Vector2 Expand(short value)
             {
