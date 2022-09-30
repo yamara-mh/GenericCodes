@@ -208,8 +208,8 @@ namespace Network
         #endregion
 
         #region Utility
-        public static long MaxValue(int bit) => bit > 0 ? (1 << bit) : (1 << bit - 1) - 1;
-        public static long MinValue(int bit) => bit > 0 ? 0 : -(1 << bit - 1);
+        public static long MaxValue(int bit) => bit > 0 ? (1 << bit) : (1 << (-bit - 1)) - 1;
+        public static long MinValue(int bit) => bit > 0 ? 0 : -(1 << (-bit - 1));
         public static long Clamp(long value, int bit) => Math.Max(MinValue(bit), Math.Min(MaxValue(bit), value));
         #endregion
     }
