@@ -86,8 +86,8 @@ namespace Network
 
                 return BitPacking.BuildLong(Bits,
                     Clamp((long)(vector.x * ReciprocalUnit), Bits[0]),
-                    Clamp((long)(vector.x * ReciprocalUnit), Bits[1]),
-                    Clamp((long)(vector.x * ReciprocalUnit), Bits[2]));
+                    Clamp((long)(vector.y * ReciprocalUnit), Bits[1]),
+                    Clamp((long)(vector.z * ReciprocalUnit), Bits[2]));
             }
             public Vector3 Expand(long value)
             {
@@ -124,8 +124,8 @@ namespace Network
 
                 return BuildInt(Bits,
                     (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[0]),
-                    (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[1]),
-                    (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[2]));
+                    (int)Clamp((int)(vector.y * ReciprocalUnit), Bits[1]),
+                    (int)Clamp((int)(vector.z * ReciprocalUnit), Bits[2]));
             }
             public Vector3 Expand(int value)
             {
@@ -161,7 +161,7 @@ namespace Network
 
                 return BuildInt(Bits,
                     (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[0]),
-                    (int)Clamp((int)(vector.x * ReciprocalUnit), Bits[1]));
+                    (int)Clamp((int)(vector.y * ReciprocalUnit), Bits[1]));
             }
             public Vector2 Expand(int value)
             {
@@ -197,7 +197,7 @@ namespace Network
 
                 return BuildInt(Bits,
                     (short)Clamp((short)(vector.x * ReciprocalUnit), Bits[0]),
-                    (short)Clamp((short)(vector.x * ReciprocalUnit), Bits[1]));
+                    (short)Clamp((short)(vector.y * ReciprocalUnit), Bits[1]));
             }
             public Vector2 Expand(short value)
             {
