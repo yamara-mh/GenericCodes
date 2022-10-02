@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UnityEngine;
 
 namespace Network
@@ -275,14 +276,16 @@ namespace Network
         public static long DirectionPackingToLong(this Vector3 direction)
         {
             var eulerAngles = Quaternion.LookRotation(direction).eulerAngles;
-            return BitPacking.BuildLong(DirLongBits,
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * 10000000f),
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * 10000000f));
+            return BitPacking.BuildLong(DirLongBits, new long[]
+            {
+                (long)((double)Mathf.Repeat(eulerAngles.x, 360f) * 10000000d),
+                (long)((double)Mathf.Repeat(eulerAngles.y, 360f) * 10000000d)
+            });
         }
         public static Quaternion ExpandToDirectionQuaternion(this long v)
         {
-            var array = BitPacking.Expand(DirLongBits, v);
-            return Quaternion.Euler(array[0] * 0.0000001f, array[1] * 0.0000001f, 0f);
+            var array = BitPacking.Expand(DirLongBits, v).Select(x => (uint)x).ToArray();
+            return Quaternion.Euler((float)(array[0] * 0.0000001d), (float)(array[1] * 0.0000001d), 0f);
         }
         public static Vector3 ExpandToDirection(this long v) => ExpandToDirectionQuaternion(v) * Vector3.forward;
     }
