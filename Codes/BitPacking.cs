@@ -223,86 +223,68 @@ namespace Network
         public static float ExpandToAngle(this short v) => (ushort)v * Unit;
         public static Quaternion ExpandToQuaternion(this short v, Vector3 axis) => Quaternion.Euler(axis * ExpandToAngle(v));
     }
-    public static class BitPackingDirection
-    {
-        private static readonly int[] IntBits = { -16, -16 };
-        private static readonly int[] LongBits = { -32, -32 };
-        private const float ReciprocalHalfPi = 0.63661977237f;
-        private const float ReciprocalShortMaxValue = 0.0000305185f;
-        private const float ReciprocalIntMaxValue = 4.6566129e-10f;
-
-        public static int DirectionPackingToInt(this Vector3 direction)
-        {
-            var dir = direction.normalized;
-            var xz = new Vector2(dir.x, dir.z);
-            return BitPacking.BuildInt(IntBits,
-                Mathf.RoundToInt(Mathf.Asin(direction.y) * ReciprocalHalfPi * short.MaxValue),
-                Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.up) / 180f * short.MaxValue));
-        }
-        public static Vector3 ExpandToDirection(this int v)
-        {
-            var array = BitPacking.Expand(IntBits, v);
-            var yHeight = Mathf.Sin(array[0] * ReciprocalShortMaxValue * Mathf.PI * 0.5f);
-            var YAngle = array[1] * ReciprocalShortMaxValue * Mathf.PI;
-            var magnitude = Mathf.Sqrt(1f - yHeight * yHeight);
-            return new Vector3(Mathf.Sin(YAngle) * magnitude, yHeight, Mathf.Cos(YAngle) * magnitude);
-        }
-
-        public static long DirectionPackingToLong(this Vector3 direction)
-        {
-            var dir = direction.normalized;
-            var xz = new Vector2(dir.x, dir.z);
-            return BitPacking.BuildLong(LongBits,
-                Mathf.RoundToInt(Mathf.Asin(direction.y) * ReciprocalHalfPi * int.MaxValue),
-                Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.up) / 180f * int.MaxValue));
-        }
-        public static Vector3 ExpandToDirection(this long v)
-        {
-            var array = BitPacking.Expand(LongBits, v);
-            var yHeight = Mathf.Sin(array[0] * ReciprocalIntMaxValue * Mathf.PI * 0.5f);
-            var YAngle = array[1] * ReciprocalIntMaxValue * Mathf.PI;
-            var magnitude = Mathf.Sqrt(1f - yHeight * yHeight);
-            return new Vector3(Mathf.Sin(YAngle) * magnitude, yHeight, Mathf.Cos(YAngle) * magnitude);
-        }
-    }
     public static class BitPakingQuaternion
     {
-        private static readonly int[] BitsByInt = { 10, 10, 10 };
-        const float UnitByInt = 0.5f;
-        const float ReciprocalUnitByInt = 2f;
+        private static readonly int[] IntBits = { 10, 10, 10 };
+        private static readonly int[] LongBIts = { 20, 20, 20 };
+        private static readonly int[] DirIntBits = { 16, 16 };
+        private static readonly int[] DirLongBits = { 32, 32 };
 
         public static int PackingToInt(this Quaternion quaternion) => EulerAnglesPackingToInt(quaternion.eulerAngles);
         public static int EulerAnglesPackingToInt(this Vector3 eulerAngles)
         {
-            return BitPacking.BuildInt(BitsByInt,
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * ReciprocalUnitByInt),
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * ReciprocalUnitByInt),
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * ReciprocalUnitByInt));
+            return BitPacking.BuildInt(IntBits,
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * 2f),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * 2f),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * 2f));
         }
         public static Quaternion ExpandToQuaternion(this int v)
         {
-            var array = BitPacking.Expand(BitsByInt, v);
-            return Quaternion.Euler(array[0] * UnitByInt, array[1] * UnitByInt, array[2] * UnitByInt);
+            var array = BitPacking.Expand(IntBits, v);
+            return Quaternion.Euler(array[0] * 0.5f, array[1] * 0.5f, array[2] * 0.5f);
         }
-
-
-        private static readonly int[] BitsByLong = { 20, 20, 20 };
-        const float UnitByLong = 0.0005f;
-        const float ReciprocalUnitByLong = 2000f;
 
         public static long PackingToLong(this Quaternion quaternion) => EulerAnglesPackingToLong(quaternion.eulerAngles);
         public static long EulerAnglesPackingToLong(this Vector3 eulerAngles)
         {
-            return BitPacking.BuildLong(BitsByLong,
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * ReciprocalUnitByLong),
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * ReciprocalUnitByLong),
-                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * ReciprocalUnitByLong));
+            return BitPacking.BuildLong(LongBIts,
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * 2000f),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * 2000f),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * 2000f));
         }
         public static Quaternion ExpandToQuaternion(this long v)
         {
-            var array = BitPacking.Expand(BitsByLong, v);
-            return Quaternion.Euler(array[0] * UnitByLong, array[1] * UnitByLong, array[2] * UnitByLong);
+            var array = BitPacking.Expand(LongBIts, v);
+            return Quaternion.Euler(array[0] * 0.0005f, array[1] * 0.0005f, array[2] * 0.0005f);
         }
+
+        public static int DirectionPackingToInt(this Vector3 direction)
+        {
+            var eulerAngles = Quaternion.LookRotation(direction).eulerAngles;
+            return BitPacking.BuildInt(DirIntBits,
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * 100f),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * 100f));
+        }
+        public static Quaternion ExpandToDirectionQuaternion(this int v)
+        {
+            var array = BitPacking.Expand(DirIntBits, v);
+            return Quaternion.Euler(array[0] * 0.01f, array[1] * 0.01f, 0f);
+        }
+        public static Vector3 ExpandToDirection(this int v) => ExpandToDirectionQuaternion(v) * Vector3.forward;
+
+        public static long DirectionPackingToLong(this Vector3 direction)
+        {
+            var eulerAngles = Quaternion.LookRotation(direction).eulerAngles;
+            return BitPacking.BuildLong(DirLongBits,
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * 10000000f),
+                Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * 10000000f));
+        }
+        public static Quaternion ExpandToDirectionQuaternion(this long v)
+        {
+            var array = BitPacking.Expand(DirLongBits, v);
+            return Quaternion.Euler(array[0] * 0.0000001f, array[1] * 0.0000001f, 0f);
+        }
+        public static Vector3 ExpandToDirection(this long v) => ExpandToDirectionQuaternion(v) * Vector3.forward;
     }
     public static class BitPackingColor
     {
