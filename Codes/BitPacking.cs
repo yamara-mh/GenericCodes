@@ -15,8 +15,8 @@ namespace Network
             for (var i = 0; i < bits.Length; i++)
             {
                 var bit = Math.Abs(bits[i]);
-                var value = (ulong)(values[i] + (bits[i] < 0 ? 1 << (bit - 1) : 0));
-                data = (data <<= bit) | (value & (ulong)((1 << bit) - 1));
+                var value = (ulong)(values[i] + (bits[i] < 0 && bit < 32 ? MaxValue(bits[i]) : 0));
+                data = (data <<= bit) | (value & (uint)(((ulong)1 << bit) - 1));
             }
             return (long)data;
         }
@@ -26,8 +26,8 @@ namespace Network
             for (var i = 0; i < bits.Length; i++)
             {
                 var bit = Math.Abs(bits[i]);
-                var value = (ulong)(values[i] + (bits[i] < 0 ? 1 << (bit - 1) : 0));
-                data = (data <<= bit) | (value & (ulong)((1 << bit) - 1));
+                var value = (ulong)(values[i] + (bits[i] < 0 && bit < 32 ? MaxValue(bits[i]) : 0));
+                data = (data <<= bit) | (value & (((ulong)1 << bit) - 1));
             }
             return (long)data;
         }
@@ -38,7 +38,7 @@ namespace Network
             for (var i = bits.Length - 1; i >= 0; i--)
             {
                 var bit = Math.Abs(bits[i]);
-                array[i] = (int)((uint)(packedData & ((1 << bit) - 1)) - (bits[i] < 0 ? 1 << (bit - 1) : 0));
+                array[i] = (int)((uint)(packedData & (((long)1 << bit) - 1)) - (bits[i] < 0 && bit < 32 ? MaxValue(bits[i]) : 0));
                 packedData >>= bit;
             }
             return array;
@@ -49,7 +49,7 @@ namespace Network
             for (var i = bits.Length - 1; i >= 0; i--)
             {
                 var bit = Math.Abs(bits[i]);
-                array[i] = (long)((ulong)(packedData & ((1 << bit) - 1)) - (ulong)(bits[i] < 0 ? 1 << (bit - 1) : 0));
+                array[i] = (long)(ulong)((packedData & (((long)1 << bit) - 1)) - (bits[i] < 0 && bit < 64  ? MaxValue(bits[i]) : 0));
                 packedData >>= bit;
             }
             return array;
@@ -78,13 +78,13 @@ namespace Network
                 vector -= Center;
                 if (Loop)
                 {
-                    return BitPacking.BuildLong(Bits,
+                    return BuildLong(Bits,
                         (long)(vector.x * ReciprocalUnit),
                         (long)(vector.y * ReciprocalUnit),
                         (long)(vector.z * ReciprocalUnit));
                 }
 
-                return BitPacking.BuildLong(Bits,
+                return BuildLong(Bits,
                     Clamp((long)(vector.x * ReciprocalUnit), Bits[0]),
                     Clamp((long)(vector.y * ReciprocalUnit), Bits[1]),
                     Clamp((long)(vector.z * ReciprocalUnit), Bits[2]));
@@ -213,7 +213,6 @@ namespace Network
         public static long Clamp(long value, int bit) => Math.Max(MinValue(bit), Math.Min(MaxValue(bit), value));
         #endregion
     }
-
     public static class BitPackingAngle
     {
         const float Unit = 0.01f;
@@ -224,172 +223,46 @@ namespace Network
         public static float ExpandToAngle(this short v) => (ushort)v * Unit;
         public static Quaternion ExpandToQuaternion(this short v, Vector3 axis) => Quaternion.Euler(axis * ExpandToAngle(v));
     }
-    public static class BitPackingAnglesDirectionToInt
+    public static class BitPackingDirection
     {
-        private static readonly int[] AnglesBits = { -15, -17 };
-        const float AnglesUnitX = 0.0000625f;
-        const float AnglesUnitY = 0.01f;
-        const float ReciprocalAnglesUnitX = 16000f;
-        const float ReciprocalAnglesUnitY = 100f;
-
-        public static int AnglesDirectionPackingToInt(this Vector3 direction)
-        {
-            var dir = direction.normalized;
-            var xz = new Vector2(-dir.x, -dir.z);
-            return BitPacking.BuildInt(AnglesBits,
-                Mathf.RoundToInt(dir.y * ReciprocalAnglesUnitX),
-                Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.down) * ReciprocalAnglesUnitY));
-        }
-        public static Vector3 ExpandToAnglesDirection(this int v)
-        {
-            var array = BitPacking.Expand(AnglesBits, v);
-            var x = array[0] * AnglesUnitX;
-            var y = array[1] * AnglesUnitY * Mathf.Deg2Rad;
-            var yRate = Mathf.Sqrt(1f - x * x);
-            return new Vector3(Mathf.Sin(y) * yRate, x, Mathf.Cos(y) * yRate);
-        }
-
-
-        private static readonly int[] UvBits = { 1, -15, -15 };
-        const float UvUnit = 0.0000625f;
-        const float UvReciprocalUnit = 16000;
-
-        public static int UvDirectionPackingToInt(this Vector3 direction)
-        {
-            var dir = direction.normalized;
-            return BitPacking.BuildInt(UvBits,
-                dir.y >= 0f ? 1 : 0,
-                Mathf.RoundToInt(dir.x * UvReciprocalUnit),
-                Mathf.RoundToInt(dir.z * UvReciprocalUnit));
-        }
-        public static Vector3 ExpandToUvDirection(this int v)
-        {
-            var array = BitPacking.Expand(UvBits, v);
-            var xz = new Vector2(array[1] * UvUnit, array[2] * UvUnit);
-            var magnitude = xz.magnitude;
-            return new Vector3(xz.x, Mathf.Sqrt(1f - magnitude * magnitude) * (array[0] == 1 ? 1f : -1f), xz.y);
-        }
-
-
-        private static readonly int[] Bits = { 1, -14, -17 };
-        private static readonly int[] Bits2 = { 1, 1, -15, -15 };
-        private const float Cos30 = 0.8660254f;
-        private const float ReciprocalCos30 = 1.1547005f;
+        private static readonly int[] IntBits = { -16, -16 };
+        private static readonly int[] LongBits = { -32, -32 };
+        private const float ReciprocalHalfPi = 0.63661977237f;
+        private const float ReciprocalShortMaxValue = 0.0000305185f;
+        private const float ReciprocalIntMaxValue = 4.6566129e-10f;
 
         public static int DirectionPackingToInt(this Vector3 direction)
         {
             var dir = direction.normalized;
-            if (Mathf.Abs(dir.y) < 0.5f)
-            {
-                var xz = new Vector2(-dir.x, -dir.z);
-                return BitPacking.BuildInt(Bits, 0,
-                    Mathf.RoundToInt(dir.y * ReciprocalAnglesUnitX),
-                    Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.down) * ReciprocalAnglesUnitY));
-            }
-            dir.x *= ReciprocalCos30;
-            dir.z *= ReciprocalCos30;
-            return BitPacking.BuildInt(Bits2, 1,
-                dir.y >= 0f ? 1 : 0,
-                Mathf.RoundToInt(dir.x * UvReciprocalUnit),
-                Mathf.RoundToInt(dir.z * UvReciprocalUnit));
+            var xz = new Vector2(dir.x, dir.z);
+            return BitPacking.BuildInt(IntBits,
+                Mathf.RoundToInt(Mathf.Asin(direction.y) * ReciprocalHalfPi * short.MaxValue),
+                Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.up) / 180f * short.MaxValue));
         }
         public static Vector3 ExpandToDirection(this int v)
         {
-            if (v >> 31 == 0)
-            {
-                var array = BitPacking.Expand(Bits, v);
-                var x = array[1] * AnglesUnitX;
-                var y = array[2] * AnglesUnitY * Mathf.Deg2Rad;
-                var yRate = Mathf.Sqrt(1f - x * x);
-                return new Vector3(Mathf.Sin(y) * yRate, x, Mathf.Cos(y) * yRate);
-            }
-            var uvArray = BitPacking.Expand(Bits2, v);
-            var xz = new Vector2(uvArray[2] * UvUnit, uvArray[3] * UvUnit) * Cos30;
-            var magnitude = xz.magnitude;
-            return new Vector3(xz.x, Mathf.Sqrt(1f - magnitude * magnitude) * (uvArray[1] == 1 ? 1f : -1f), xz.y);
+            var array = BitPacking.Expand(IntBits, v);
+            var yHeight = Mathf.Sin(array[0] * ReciprocalShortMaxValue * Mathf.PI * 0.5f);
+            var YAngle = array[1] * ReciprocalShortMaxValue * Mathf.PI;
+            var magnitude = Mathf.Sqrt(1f - yHeight * yHeight);
+            return new Vector3(Mathf.Sin(YAngle) * magnitude, yHeight, Mathf.Cos(YAngle) * magnitude);
         }
-    }
-
-    public static class BitPackingDirectionToLong
-    {
-        private static readonly int[] AnglesBits = { -32, -32 };
-        const float AnglesUnit = 5e-10f;
-        const float ReciprocalAnglesUnit = 2000000000f;
-
-        public static long AnglesDirectionPackingToLong(this Vector3 direction)
-        {
-            var dir = direction.normalized;
-            var xz = new Vector2(-dir.x, -dir.z);
-            return BitPacking.BuildLong(AnglesBits,
-                Mathf.RoundToInt(dir.y * ReciprocalAnglesUnit),
-                Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.down) * ReciprocalAnglesUnit));
-        }
-        public static Vector3 ExpandToAnglesDirection(this long v)
-        {
-            var array = BitPacking.Expand(AnglesBits, v);
-            var x = array[0] * AnglesUnit;
-            var y = array[1] * AnglesUnit * Mathf.Deg2Rad;
-            var yRate = Mathf.Sqrt(1f - x * x);
-            return new Vector3(Mathf.Sin(y) * yRate, x, Mathf.Cos(y) * yRate);
-        }
-
-
-        private static readonly int[] UvBits = { 1, -31, -31 };
-        const float UvUnit = 1e-9f;
-        const float UvReciprocalUnit = 1000000000f;
-
-        public static long UvDirectionPackingToLong(this Vector3 direction)
-        {
-            var dir = direction.normalized;
-            return BitPacking.BuildLong(UvBits,
-                dir.y >= 0f ? 1 : 0,
-                Mathf.RoundToInt(dir.x * UvReciprocalUnit),
-                Mathf.RoundToInt(dir.z * UvReciprocalUnit));
-        }
-        public static Vector3 ExpandToUvDirection(this long v)
-        {
-            var array = BitPacking.Expand(UvBits, v);
-            var xz = new Vector2(array[1] * UvUnit, array[2] * UvUnit);
-            var magnitude = xz.magnitude;
-            return new Vector3(xz.x, Mathf.Sqrt(1f - magnitude * magnitude) * (array[0] == 1 ? 1f : -1f), xz.y);
-        }
-
-
-        private static readonly int[] Bits = { 1, 1, -31, -31 };
-        private const float Cos30 = 0.8660254f;
-        private const float ReciprocalCos30 = 1.1547005f;
 
         public static long DirectionPackingToLong(this Vector3 direction)
         {
             var dir = direction.normalized;
-            if (Mathf.Abs(dir.y) < 0.5f)
-            {
-                var xz = new Vector2(-dir.x, -dir.z);
-                return BitPacking.BuildLong(Bits, 0, 0,
-                    Mathf.RoundToInt(dir.y * ReciprocalAnglesUnit),
-                    Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.down) * ReciprocalAnglesUnit));
-            }
-            dir.x *= ReciprocalCos30;
-            dir.z *= ReciprocalCos30;
-            return BitPacking.BuildLong(Bits, 1,
-                dir.y >= 0f ? 1 : 0,
-                Mathf.RoundToInt(dir.x * UvReciprocalUnit),
-                Mathf.RoundToInt(dir.z * UvReciprocalUnit));
+            var xz = new Vector2(dir.x, dir.z);
+            return BitPacking.BuildLong(LongBits,
+                Mathf.RoundToInt(Mathf.Asin(direction.y) * ReciprocalHalfPi * int.MaxValue),
+                Mathf.RoundToInt(Vector2.SignedAngle(xz, Vector2.up) / 180f * int.MaxValue));
         }
         public static Vector3 ExpandToDirection(this long v)
         {
-            if (v >> 63 == 0)
-            {
-                var array = BitPacking.Expand(Bits, v);
-                var x = array[2] * AnglesUnit;
-                var y = array[3] * AnglesUnit * Mathf.Deg2Rad;
-                var yRate = Mathf.Sqrt(1f - x * x);
-                return new Vector3(Mathf.Sin(y) * yRate, x, Mathf.Cos(y) * yRate);
-            }
-            var uvArray = BitPacking.Expand(Bits, v);
-            var xz = new Vector2(uvArray[2] * UvUnit, uvArray[3] * UvUnit) * Cos30;
-            var magnitude = xz.magnitude;
-            return new Vector3(xz.x, Mathf.Sqrt(1f - magnitude * magnitude) * (uvArray[1] == 1 ? 1f : -1f), xz.y);
+            var array = BitPacking.Expand(LongBits, v);
+            var yHeight = Mathf.Sin(array[0] * ReciprocalIntMaxValue * Mathf.PI * 0.5f);
+            var YAngle = array[1] * ReciprocalIntMaxValue * Mathf.PI;
+            var magnitude = Mathf.Sqrt(1f - yHeight * yHeight);
+            return new Vector3(Mathf.Sin(YAngle) * magnitude, yHeight, Mathf.Cos(YAngle) * magnitude);
         }
     }
     public static class BitPakingQuaternion
