@@ -259,9 +259,10 @@ namespace Network
             return Quaternion.Euler(array[0] * 0.0005f, array[1] * 0.0005f, array[2] * 0.0005f);
         }
 
-        public static int DirectionPackingToInt(this Vector3 direction)
+        public static int DirectionPackingToInt(this Vector3 direction) => DirectionPackingToInt(Quaternion.LookRotation(direction));
+        public static int DirectionPackingToInt(this Quaternion quaternion)
         {
-            var eulerAngles = Quaternion.LookRotation(direction).eulerAngles;
+            var eulerAngles = quaternion.eulerAngles;
             return BitPacking.BuildInt(DirIntBits,
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * 100f),
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * 100f));
@@ -273,9 +274,10 @@ namespace Network
         }
         public static Vector3 ExpandToDirection(this int v) => ExpandToDirectionQuaternion(v) * Vector3.forward;
 
-        public static long DirectionPackingToLong(this Vector3 direction)
+        public static long DirectionPackingToLong(this Vector3 direction) => DirectionPackingToLong(Quaternion.LookRotation(direction));
+        public static long DirectionPackingToLong(this Quaternion quaternion)
         {
-            var eulerAngles = Quaternion.LookRotation(direction).eulerAngles;
+            var eulerAngles = quaternion.eulerAngles;
             return BitPacking.BuildLong(DirLongBits, new long[]
             {
                 (long)((double)Mathf.Repeat(eulerAngles.x, 360f) * 10000000d),
