@@ -216,17 +216,14 @@ namespace Network
     }
     public static class BitPackingJoyStick
     {
-        const float Unit = 0.00787401574f;
-        const float ReciprocalUnit = 127f;
-
-        public static short JoyStickToShort(this Vector2 axis)
-        {
-            var x = (byte)((axis.x + 1f) * ReciprocalUnit);
-            var y = (byte)((axis.y + 1f) * ReciprocalUnit);
-            return (short)((ushort)(x << 8) | y);
-        }
+        public static short JoyStickPackingToShort(this Vector2 axis)
+            => (short)((ushort)((axis.x + 1f) * 127f) << 8 | (ushort)((axis.y + 1f) * 127f));
         public static Vector2 ExpandToJoyStick(this short value)
-            => new Vector2(((ushort)value >> 8) * Unit - 1f, ((ushort)value & 0x00FF) * Unit - 1f).normalized;
+        {
+            var axis = new Vector2((byte)(value >> 8) - 127f, (byte)(value & 0x00FF) - 127f) * 0.00787401574f;
+            if (axis.sqrMagnitude > 1f) axis.Normalize();
+            return axis;
+        }
     }
     public static class BitPackingAngle
     {
@@ -241,7 +238,7 @@ namespace Network
     public static class BitPakingQuaternion
     {
         private static readonly int[] IntBits = { 10, 10, 10 };
-        private static readonly int[] LongBIts = { 20, 20, 20 };
+        private static readonly int[] LongBits = { 20, 20, 20 };
         private static readonly int[] DirIntBits = { 16, 16 };
         private static readonly int[] DirLongBits = { 32, 32 };
 
@@ -262,14 +259,14 @@ namespace Network
         public static long PackingToLong(this Quaternion quaternion) => EulerAnglesPackingToLong(quaternion.eulerAngles);
         public static long EulerAnglesPackingToLong(this Vector3 eulerAngles)
         {
-            return BitPacking.BuildLong(LongBIts,
+            return BitPacking.BuildLong(LongBits,
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.x, 360f) * 2000f),
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.y, 360f) * 2000f),
                 Mathf.RoundToInt(Mathf.Repeat(eulerAngles.z, 360f) * 2000f));
         }
         public static Quaternion ExpandToQuaternion(this long v)
         {
-            var array = BitPacking.Expand(LongBIts, v);
+            var array = BitPacking.Expand(LongBits, v);
             return Quaternion.Euler(array[0] * 0.0005f, array[1] * 0.0005f, array[2] * 0.0005f);
         }
 
