@@ -73,7 +73,8 @@ namespace Yamara
             return this;
         }
         public ScriptBuilder Pop(int length) => InvRemove(0, length);
-        public ScriptBuilder PopIndentLength() => Pop(IndentText.Length);
+        public ScriptBuilder PopIndentLength() => Pop(IndentText.Length * indentCount);
+        public ScriptBuilder PopSingleIndentLength() => Pop(IndentText.Length);
 
         private static readonly string[] InvalidChars =
         {
