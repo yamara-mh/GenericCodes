@@ -12,8 +12,8 @@ namespace Yamara
         private const string SctiptExtension = ".cs";
         private const string IndentText = "    ";
 
-        private StringBuilder stringBuilder = new();
-        private int indentCount = 0;
+        public StringBuilder stringBuilder { get; set; } = new();
+        public int indentCount { get; set; } = 0;
         private bool indented = false;
 
         public ScriptBuilder PlusIndent()
