@@ -7,7 +7,7 @@ using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets;
 using Yamara;
 
-namespace Addressable
+namespace Addressables
 {
     [CreateAssetMenu(menuName = "Addressables/Create AddressDefineCreator", fileName = "AddressDefineCreator")]
     public class AddressDefineCreatorSettings : ScriptableObject
@@ -78,7 +78,7 @@ namespace Addressable
 
         private void CreateAddressDefineFile(Dictionary<AddressableAssetGroup, List<AddressableAssetEntry>> assetDict)
         {
-            var builder = new ScriptBuilder().Namespace(nameof(Addressable)).OpenBrace();
+            var builder = new ScriptBuilder().Namespace(nameof(Addressables)).OpenBrace();
             builder.Append("public static class ").AppendLine(ClassName).OpenBrace();
 
             foreach (var pair in assetDict)
