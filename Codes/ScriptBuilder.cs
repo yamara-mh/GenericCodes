@@ -94,7 +94,11 @@ namespace Yamara
 
         public ScriptBuilder OpenBrace() => TryIndent().AppendLine("{").PlusIndent();
         public ScriptBuilder CloseBrace() => MinusIndent().TryIndent().AppendLine("}");
-        public ScriptBuilder NewLine() => AppendLine(string.Empty);
+        public ScriptBuilder NewLine()
+        {
+            stringBuilder.AppendLine(string.Empty);
+            return this;
+        }
 
         public ScriptBuilder UsingDirectives(params string[] nameSpaces)
         {
