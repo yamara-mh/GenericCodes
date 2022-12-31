@@ -97,6 +97,7 @@ namespace Yamara
         public ScriptBuilder NewLine()
         {
             stringBuilder.AppendLine(string.Empty);
+            indented = false;
             return this;
         }
 
