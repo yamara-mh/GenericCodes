@@ -220,9 +220,9 @@ namespace Network
             => (short)((ushort)((axis.x + 1f) * 127f) << 8 | (ushort)((axis.y + 1f) * 127f));
         public static Vector2 ExpandToJoyStick(this short value)
         {
-            var axis = new Vector2((byte)(value >> 8) - 127f, (byte)(value & 0x00FF) - 127f) * 0.00787401574f;
-            if (axis.sqrMagnitude > 1f) axis.Normalize();
-            return axis;
+            ushort v = (ushort)value;
+            var axis = new Vector2((v >> 8) * Unit - 1f, (v & 0x00FF) * Unit - 1f);
+            return axis.sqrMagnitude <= 1f ? axis : axis.normalized;
         }
     }
     public static class BitPackingAngle
