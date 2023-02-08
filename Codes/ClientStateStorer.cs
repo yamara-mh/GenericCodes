@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using static Fusion.NetworkRigidbodyBase;
+using static Fusion.NetworkRunner;
 
 namespace PhotonFusionUtil
 {
@@ -182,29 +183,7 @@ namespace PhotonFusionUtil
         private static Dictionary<NetworkRunner, NetworkRunner> oldRunnerDict = new();
         private static Dictionary<NetworkRunner, ClientStateStorer> storerDict = new();
 
-        /// <summary>
-        /// Use it immediately after spawning a new Runner in OnHostMigration().
-        /// </summary>
-        public static void SetOldRunner(this NetworkRunner runner, NetworkRunner oldRunner) => oldRunnerDict.Add(runner, oldRunner);
-        public static NetworkRunner OldRunner(this NetworkRunner runner)
-        {
-            if (!oldRunnerDict.ContainsKey(runner)) return null;
-            return oldRunnerDict[runner];
-        }
-        /// <summary>
-        /// Call it at the end of OnPlayerJoined().
-        /// </summary>
-        public static void RemoveOldRunnerAndStorer(this NetworkRunner runner)
-        {
-            var oldRunner = runner.OldRunner();
-            if (oldRunner != null && storerDict.ContainsKey(oldRunner))
-            {
-                storerDict.Remove(oldRunner);
-                oldRunnerDict.Remove(runner);
-            }
-        }
-
-        public static ClientStateStorer Storer(this NetworkRunner runner)
+        private static ClientStateStorer Storer(this NetworkRunner runner)
         {
             if (!storerDict.ContainsKey(runner))
             {
@@ -213,9 +192,33 @@ namespace PhotonFusionUtil
             }
             return storerDict[runner];
         }
+        private static NetworkRunner OldRunner(this NetworkRunner runner)
+            => oldRunnerDict.ContainsKey(runner) ? oldRunnerDict[runner] : null;
 
         /// <summary>
-        /// Networked properties and local variables can be stored and restored. Use with Spawned().
+        /// Add at the beginning of OnHostMigration()
+        /// </summary>
+        public static void Store(this NetworkRunner runner, Func<NetworkObject, bool> storeConditions = null)
+        {
+            runner.Storer().Store(runner, storeConditions);
+        }
+
+        /// <summary>
+        /// Add it right after spawning a new Runner in OnHostMigration()
+        /// </summary>
+        public static void SetOldRunner(this NetworkRunner runner, NetworkRunner oldRunner) => oldRunnerDict.Add(runner, oldRunner);
+
+        /// <summary>
+        /// Add at the beginning of HostMigrationResume()
+        /// </summary>
+        public static void SpawnRestore(this NetworkRunner runner,
+            Action<NetworkRunner, NetworkObject> onBeforeSpawned = null, Action<NetworkRunner, NetworkObject> onAfterSpawned = null)
+        {
+            runner.OldRunner().Storer().SpawnRestore(runner, onBeforeSpawned, onAfterSpawned);
+        }
+
+        /// <summary>
+        /// Networked properties and local variables can be stored and restored. Use with Spawned()
         /// </summary>
         public static void StoreAndTryRestore<T>(this NetworkRunner runner, object uniqueId, Lazy<object> store, Action<T> restore)
         {
@@ -228,7 +231,7 @@ namespace PhotonFusionUtil
 
 #if CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
         /// <summary>
-        /// Can handle NetworkId changes. Use with Spawned().
+        /// Can handle NetworkId changes. Use with Spawned()
         /// </summary>
         public static void ReceiveUpdatedNetworkId(
             this NetworkRunner runner,
@@ -242,5 +245,17 @@ namespace PhotonFusionUtil
             }
         }
 #endif
+
+        /// <summary>
+        /// Add at the end of OnPlayerJoined()
+        /// </summary>
+        public static void RemoveOldRunnerAndStorer(this NetworkRunner runner)
+        {
+            if (runner.OldRunner() != null && storerDict.ContainsKey(runner.OldRunner()))
+            {
+                storerDict.Remove(runner.OldRunner());
+                oldRunnerDict.Remove(runner);
+            }
+        }
     }
 }
