@@ -230,7 +230,7 @@ namespace PhotonFusionUtil
         /// <summary>
         /// Can handle NetworkId changes. Use with Spawned().
         /// </summary>
-        public static void ReceiveUpdateNetworkId(
+        public static void ReceiveUpdatedNetworkId(
             this NetworkRunner runner,
             Action<(NetworkId oldId, NetworkId newId)> updated,
             params NetworkId[] networkIds)
