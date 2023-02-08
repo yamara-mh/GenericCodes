@@ -109,7 +109,7 @@ namespace PhotonFusionUtil
         /// Respawn the NetworkObjects based on the stored state.
         /// Can be executed only once per storing.
         /// </summary>
-        public void SpawnRestore(NetworkRunner runner,
+        public void SpawnsAndRestores(NetworkRunner runner,
             Action<NetworkRunner, NetworkObject> onBeforeSpawned = null,
             Action<NetworkRunner, NetworkObject> onAfterSpawned = null)
         {
@@ -211,10 +211,10 @@ namespace PhotonFusionUtil
         /// <summary>
         /// Add at the beginning of HostMigrationResume()
         /// </summary>
-        public static void SpawnRestore(this NetworkRunner runner,
+        public static void SpawnsAndRestores(this NetworkRunner runner,
             Action<NetworkRunner, NetworkObject> onBeforeSpawned = null, Action<NetworkRunner, NetworkObject> onAfterSpawned = null)
         {
-            runner.OldRunner().Storer().SpawnRestore(runner, onBeforeSpawned, onAfterSpawned);
+            runner.OldRunner().Storer().SpawnsAndRestores(runner, onBeforeSpawned, onAfterSpawned);
         }
 
         /// <summary>
