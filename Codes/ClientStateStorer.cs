@@ -1,5 +1,5 @@
 #define CLIENT_STATE_STORER__PHYSICS
-// #define CLIENT_STATE_STORER__PHYSICS_2D
+#define CLIENT_STATE_STORER__PHYSICS_2D
 #define CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
 
 using Fusion;
@@ -16,8 +16,10 @@ namespace PhotonFusionUtil
 
         private Dictionary<NetworkId, NetworkPrefabId> _prefabDict;
         private Dictionary<NetworkId, (Vector3 pos, Rotation rot)> _transformDict;
-        private Dictionary<NetworkId, (Vector3 velocity, Vector3 angularVelocity, NetworkRigidbodyFlags flags, int constraints)> _rbDict;
-        private Dictionary<NetworkId, (float mass, float drag, float aDrag)> _rbDetailDict;
+        private Dictionary<NetworkId, (
+            Vector3 velocity, Vector3 angularVelocity,
+            float mass, float drag, float aDrag,
+            NetworkRigidbodyFlags flags, int constraints)> _rbDict;
 
         private Dictionary<object, Lazy<object>> _storeEventDict = new();
         public Dictionary<object, object> _storeDict = new();
@@ -55,7 +57,6 @@ namespace PhotonFusionUtil
             _prefabDict = new(capacity);
             _transformDict = new(capacity);
             _rbDict = new(capacity);
-            _rbDetailDict = new(capacity);
 
             foreach (var NB in netBehaviours)
             {
@@ -70,16 +71,16 @@ namespace PhotonFusionUtil
                     if (NB.Object.TryGetBehaviour<NetworkRigidbody>(out var rb))
                     {
                         rb.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
-                        _rbDict.Add(netId, (rb.ReadVelocity(), rb.ReadAngularVelocity(), flags, (int)constraints));
-                        _rbDetailDict.Add(netId, (rb.ReadMass(), rb.ReadDrag(), rb.ReadAngularDrag()));
+                        _rbDict.Add(netId, (rb.ReadVelocity(), rb.ReadAngularVelocity(),
+                            rb.ReadMass(), rb.ReadDrag(), rb.ReadAngularDrag(), flags, (int)constraints));
                     }
 #endif
 #if CLIENT_STATE_STORER__PHYSICS_2D
                     if (NB.Object.TryGetBehaviour<NetworkRigidbody2D>(out var rb2d))
                     {
                         rb2d.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
-                        _rbDict.Add(netId, (rb2d.ReadVelocity(), Vector3.forward * rb2d.ReadAngularVelocity(), flags, (int)constraints));
-                        _rbDetailDict.Add(netId, (rb2d.ReadMass(), rb2d.ReadDrag(), rb2d.ReadAngularDrag()));
+                        _rbDict.Add(netId, (rb2d.ReadVelocity(), Vector3.forward * rb2d.ReadAngularVelocity(),
+                            rb2d.ReadMass(), rb2d.ReadDrag(), rb2d.ReadAngularDrag(), flags, (int)constraints));
                     }
 #endif
                     if (NB.Object.TryGetBehaviour<NetworkPositionRotation>(out var posRot))
@@ -157,10 +158,9 @@ namespace PhotonFusionUtil
                 rb.WriteVelocity(_rbDict[netId].velocity);
                 rb.WriteAngularVelocity(_rbDict[netId].angularVelocity);
                 rb.WriteNetworkRigidbodyFlags(_rbDict[netId].flags, (RigidbodyConstraints)_rbDict[netId].constraints);
-
-                rb.WriteMass(_rbDetailDict[netId].mass);
-                rb.WriteDrag(_rbDetailDict[netId].drag);
-                rb.WriteAngularDrag(_rbDetailDict[netId].aDrag);
+                rb.WriteMass(_rbDict[netId].mass);
+                rb.WriteDrag(_rbDict[netId].drag);
+                rb.WriteAngularDrag(_rbDict[netId].aDrag);
             }
 #endif
 #if CLIENT_STATE_STORER__PHYSICS_2D
@@ -169,10 +169,9 @@ namespace PhotonFusionUtil
                 rb2d.WriteVelocity(_rbDict[netId].velocity);
                 rb2d.WriteAngularVelocity(_rbDict[netId].angularVelocity.z);
                 rb2d.WriteNetworkRigidbodyFlags(_rbDict[netId].flags, (RigidbodyConstraints2D)_rbDict[netId].constraints);
-
-                rb2d.WriteMass(_rbDetailDict[netId].mass);
-                rb2d.WriteDrag(_rbDetailDict[netId].drag);
-                rb2d.WriteAngularDrag(_rbDetailDict[netId].aDrag);
+                rb2d.WriteMass(_rbDict[netId].mass);
+                rb2d.WriteDrag(_rbDict[netId].drag);
+                rb2d.WriteAngularDrag(_rbDict[netId].aDrag);
             }
 #endif
         }
@@ -243,32 +242,5 @@ namespace PhotonFusionUtil
             }
         }
 #endif
-
-        public static void CopyFrom<T>(this NetworkArray<T> netArray, object obj)
-        {
-            var array = (T[])obj;
-            netArray.CopyFrom(array, 0, array.Length - 1);
-        }
-
-        public static void CopyFrom<T>(this NetworkLinkedList<T> netList, object obj)
-        {
-            var array = (T[])obj;
-            if (array.Length == netList.Count)
-            {
-                for (int i = 0; i < array.Length; i++) netList.Set(i, array[i]);
-            }
-            else
-            {
-                netList.Clear();
-                for (int i = 0; i < array.Length; i++) netList.Add(array[i]);
-            }
-        }
-
-        public static void CopyFrom<K, V>(this NetworkDictionary<K, V> netDict, object obj)
-        {
-            netDict.Clear();
-            var array = (KeyValuePair<K, V>[])obj;
-            for (int i = 0; i < array.Length; i++) netDict.Add(array[i].Key, array[i].Value);
-        }
     }
 }
