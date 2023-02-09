@@ -1,5 +1,6 @@
 using Fusion;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UniRx;
 using UnityEngine;
@@ -110,31 +111,26 @@ namespace Extensions
             }
         }
 
-        public static void CopyFrom<T>(this NetworkArray<T> netArray, object obj)
-        {
-            var array = (T[])obj;
-            netArray.CopyFrom(array, 0, array.Length - 1);
-        }
+        public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array)
+            => netArray.CopyFrom(array, 0, array.Length - 1);
 
-        public static void CopyFrom<T>(this NetworkLinkedList<T> netList, object obj)
+        public static void CopyFrom<T>(this NetworkLinkedList<T> netList, List<T> list)
         {
-            var array = (T[])obj;
-            if (array.Length == netList.Count)
+            if (list.Count == netList.Count)
             {
-                for (int i = 0; i < array.Length; i++) netList.Set(i, array[i]);
+                for (int i = 0; i < list.Count; i++) netList.Set(i, list[i]);
             }
             else
             {
                 netList.Clear();
-                for (int i = 0; i < array.Length; i++) netList.Add(array[i]);
+                for (int i = 0; i < list.Count; i++) netList.Add(list[i]);
             }
         }
 
-        public static void CopyFrom<K, V>(this NetworkDictionary<K, V> netDict, object obj)
+        public static void CopyFrom<K, V>(this NetworkDictionary<K, V> netDict, KeyValuePair<K, V>[] pairs)
         {
             netDict.Clear();
-            var array = (KeyValuePair<K, V>[])obj;
-            for (int i = 0; i < array.Length; i++) netDict.Add(array[i].Key, array[i].Value);
+            for (int i = 0; i < pairs.Length; i++) netDict.Add(pairs[i].Key, pairs[i].Value);
         }
 
         #endregion
@@ -158,6 +154,18 @@ namespace Extensions
                 return true;
             }
             if (assignNone) obj.AssignInputAuthority(PlayerRef.None);
+            return false;
+        }
+
+        private static double lastSnapshotTime = 0d;
+        public static bool TryPushHostMigrationSnapshot(this NetworkRunner runner, double interval = 1d)
+        {
+            if (Time.unscaledTimeAsDouble - lastSnapshotTime >= interval)
+            {
+                lastSnapshotTime = Time.unscaledTimeAsDouble;
+                runner.PushHostMigrationSnapshot();
+                return true;
+            }
             return false;
         }
 
