@@ -1,5 +1,5 @@
 #define CLIENT_STATE_STORER__PHYSICS
-#define CLIENT_STATE_STORER__PHYSICS_2D
+// #define CLIENT_STATE_STORER__PHYSICS_2D
 #define CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
 
 using Fusion;
@@ -50,7 +50,6 @@ namespace PhotonFusionUtil
         {
             storeConditions ??= (no) => true;
             _tick = runner.Tick;
-
             var netBehaviours = runner.GetAllBehaviours<NetworkBehaviour>();
 
             var capacity = netBehaviours.Count / 2;
@@ -109,22 +108,26 @@ namespace PhotonFusionUtil
         /// Can be executed only once per storing.
         /// </summary>
         public void SpawnsAndRestores(NetworkRunner runner,
+            Func<IEnumerable<NetworkObject>, IEnumerable<NetworkObject>> spawnOrder = null,
             Action<NetworkRunner, NetworkObject> onBeforeSpawned = null,
             Action<NetworkRunner, NetworkObject> onAfterSpawned = null)
         {
+            spawnOrder ??= list => list;
+
             // Advance ResumeSnapshot's Tick to old Runner's Tick
             while (runner.Tick != _tick) runner.Simulation.Update(runner.DeltaTime);
 
-            foreach (var no in runner.GetResumeSnapshotNetworkObjects())
+            foreach (var no in spawnOrder.Invoke(runner.GetResumeSnapshotNetworkObjects()))
             {
                 if (!_prefabDict.ContainsKey(no.Id)) continue;
                 _prefabDict.Remove(no.Id);
 
                 var networkObject = runner.Spawn(no, _transformDict[no.Id].pos, _transformDict[no.Id].rot,
-                    onBeforeSpawned: (runner, NO) =>
+                    onBeforeSpawned: (runner, newNO) =>
                     {
-                        OnBeforeSpawnedBase(NO.Id, NO);
-                        onBeforeSpawned?.Invoke(runner, NO);
+                        newNO.CopyStateFrom(no);
+                        OnBeforeSpawnedBase(newNO.Id, newNO);
+                        onBeforeSpawned?.Invoke(runner, newNO);
                     });
                 onAfterSpawned?.Invoke(runner, no);
             }
@@ -211,9 +214,10 @@ namespace PhotonFusionUtil
         /// Add at the beginning of HostMigrationResume()
         /// </summary>
         public static void SpawnsAndRestores(this NetworkRunner runner,
+            Func<IEnumerable<NetworkObject>, IEnumerable<NetworkObject>> spawnOrder = null,
             Action<NetworkRunner, NetworkObject> onBeforeSpawned = null, Action<NetworkRunner, NetworkObject> onAfterSpawned = null)
         {
-            runner.OldRunner().Storer().SpawnsAndRestores(runner, onBeforeSpawned, onAfterSpawned);
+            runner.OldRunner().Storer().SpawnsAndRestores(runner, spawnOrder, onBeforeSpawned, onAfterSpawned);
         }
 
         /// <summary>
@@ -227,6 +231,9 @@ namespace PhotonFusionUtil
                 runner.OldRunner().Storer().TryRestore<T>(uniqueId, receiveData => restore?.Invoke(receiveData));
             }
         }
+
+        public static bool IsRestoring(this NetworkRunner runner)
+            => oldRunnerDict.ContainsKey(runner) && storerDict.ContainsKey(runner.OldRunner());
 
 #if CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
         /// <summary>
