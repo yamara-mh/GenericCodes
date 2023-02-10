@@ -1,6 +1,5 @@
-#define CLIENT_STATE_STORER__PHYSICS
-// #define CLIENT_STATE_STORER__PHYSICS_2D
-#define CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
+#define CLIENT_STATE_RESTORER__PHYSICS
+#define CLIENT_STATE_RESTORER__PHYSICS_2D
 
 using Fusion;
 using System;
@@ -10,8 +9,16 @@ using static Fusion.NetworkRigidbodyBase;
 
 namespace PhotonFusionUtil
 {
-    public class ClientStateStorer
+    public class ClientStateRestorer
     {
+        private bool _restoreSpawnsOnAfterSnapshot, _storePredictions;
+
+        public ClientStateRestorer(bool restoreOnAfterSnapshot = true, bool storePredictions = false)
+        {
+            _restoreSpawnsOnAfterSnapshot = restoreOnAfterSnapshot;
+            _storePredictions = storePredictions;
+        }
+
         private int _tick;
 
         private Dictionary<NetworkId, NetworkPrefabId> _prefabDict;
@@ -26,6 +33,7 @@ namespace PhotonFusionUtil
 
         private Dictionary<NetworkId, NetworkId> _updatedNetworkIdDict;
 
+
         public void Add(object uniqueId, Lazy<object> store)
         {
             _storeEventDict.Add(uniqueId, store);
@@ -33,12 +41,12 @@ namespace PhotonFusionUtil
 
         public void TryRestore<T>(object uniqueId, Action<T> restore)
         {
-            if (_storeDict.ContainsKey(uniqueId)) restore?.Invoke((T)_storeDict[uniqueId]);
+            if (_storeDict.TryGetValue(uniqueId, out var data)) restore?.Invoke((T)data);
         }
 
         public void CheckUpdateNetworkId(NetworkId networkId, Action<NetworkId> updated)
         {
-            if (_updatedNetworkIdDict.ContainsKey(networkId)) updated?.Invoke(_updatedNetworkIdDict[networkId]);
+            if (_updatedNetworkIdDict.TryGetValue(networkId, out var newId)) updated?.Invoke(newId);
         }
 
         /// <summary>
@@ -59,17 +67,30 @@ namespace PhotonFusionUtil
 
             foreach (var NB in netBehaviours)
             {
-                if (_prefabDict.ContainsKey(NB.Object.Id)) continue;
+                if (_prefabDict.TryGetValue(NB.Object.Id, out _)) continue;
                 if (storeConditions.Invoke(NB.Object) && runner.Config.PrefabTable.TryGetId(NB.Object.NetworkGuid, out var prefabId))
                 {
                     _prefabDict.Add(NB.Object.Id, prefabId);
 
                     foreach (var nb in NB.Object.NetworkedBehaviours)
                     {
-
-#if CLIENT_STATE_STORER__PHYSICS
+#if CLIENT_STATE_RESTORER__PHYSICS
                         if (nb.TryChangeType<NetworkRigidbody>(out var rb))
                         {
+                            if (_storePredictions)
+                            {
+                                var netFlags = rb.Rigidbody.isKinematic ? 0x1 : 0;
+                                netFlags |= rb.Rigidbody.useGravity ? 0x2 : 0;
+                                netFlags |= rb.Rigidbody.IsSleeping() ? 0x4 : 0;
+
+                                _rbDict.Add(rb.Id, (rb.Rigidbody.velocity, rb.Rigidbody.angularVelocity,
+                                    rb.Rigidbody.mass, rb.Rigidbody.drag, rb.Rigidbody.angularDrag,
+                                    (NetworkRigidbodyFlags)netFlags, (int)rb.Rigidbody.constraints));
+
+                                _transformDict.Add(rb.Id, (rb.Transform.position, rb.Transform.rotation));
+                                continue;
+                            }
+
                             rb.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
                             _rbDict.Add(rb.Id, (rb.ReadVelocity(), rb.ReadAngularVelocity(),
                                 rb.ReadMass(), rb.ReadDrag(), rb.ReadAngularDrag(), flags, (int)constraints));
@@ -78,9 +99,22 @@ namespace PhotonFusionUtil
                             continue;
                         }
 #endif
-#if CLIENT_STATE_STORER__PHYSICS_2D
+#if CLIENT_STATE_RESTORER__PHYSICS_2D
                         if (nb.TryChangeType<NetworkRigidbody2D>(out var rb2d))
                         {
+                            if (_storePredictions)
+                            {
+                                var netFlags = rb2d.Rigidbody.isKinematic ? 0x1 : 0;
+                                netFlags |= rb2d.Rigidbody.IsSleeping() ? 0x4 : 0;
+
+                                _rbDict.Add(rb2d.Id, (rb2d.Rigidbody.velocity, Vector3.forward * rb2d.Rigidbody.angularVelocity,
+                                    rb2d.Rigidbody.mass, rb2d.Rigidbody.drag, rb2d.Rigidbody.angularDrag,
+                                    (NetworkRigidbodyFlags)netFlags, (int)rb2d.Rigidbody.constraints));
+
+                                _transformDict.Add(rb2d.Id, (rb2d.Transform.position, rb2d.Transform.rotation));
+                                continue;
+                            }
+
                             rb2d.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
                             _rbDict.Add(rb2d.Id, (rb2d.ReadVelocity(), Vector3.forward * rb2d.ReadAngularVelocity(),
                                 rb2d.ReadMass(), rb2d.ReadDrag(), rb2d.ReadAngularDrag(), flags, (int)constraints));
@@ -91,11 +125,21 @@ namespace PhotonFusionUtil
 #endif
                         if (nb.TryChangeType<NetworkPositionRotation>(out var posRot))
                         {
+                            if (_storePredictions)
+                            {
+                                _transformDict.Add(posRot.Id, (posRot.Transform.position, posRot.Transform.rotation));
+                                continue;
+                            }
                             _transformDict.Add(posRot.Id, (posRot.ReadPosition(), posRot.ReadRotation()));
                             continue;
                         }
                         if (nb.TryChangeType<NetworkPosition>(out var pos))
                         {
+                            if (_storePredictions)
+                            {
+                                _transformDict.Add(pos.Id, (pos.Transform.position, Quaternion.identity));
+                                continue;
+                            }
                             _transformDict.Add(pos.Id, (pos.ReadPosition(), Quaternion.identity));
                             continue;
                         }
@@ -124,8 +168,8 @@ namespace PhotonFusionUtil
 
             foreach (var no in spawnOrder.Invoke(runner.GetResumeSnapshotNetworkObjects()))
             {
-                if (!_prefabDict.ContainsKey(no.Id)) continue;
-                _prefabDict.Remove(no.Id);
+                if (!_prefabDict.TryGetValue(no.Id, out _)) continue;
+                if (_restoreSpawnsOnAfterSnapshot) _prefabDict.Remove(no.Id);
 
                 var networkObject = runner.Spawn(no,
                     onBeforeSpawned: (runner, newNO) =>
@@ -137,7 +181,8 @@ namespace PhotonFusionUtil
                 onAfterSpawned?.Invoke(runner, networkObject);
             }
 
-#if CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
+            if (!_restoreSpawnsOnAfterSnapshot) return;
+
             _updatedNetworkIdDict = new(_prefabDict.Count);
 
             // Spawns objects created after the PushHostMigrationSnapshot(). Note that the NetworkId will change
@@ -156,14 +201,13 @@ namespace PhotonFusionUtil
                     });
                 onAfterSpawned?.Invoke(runner, networkObject);
             }
-#endif
         }
 
         private void OnBeforeSpawnedBase(NetworkId netId, NetworkObject no)
         {
             foreach (var nb in no.NetworkedBehaviours)
             {
-#if CLIENT_STATE_STORER__PHYSICS
+#if CLIENT_STATE_RESTORER__PHYSICS
                 if (nb.TryChangeType<NetworkRigidbody>(out var rb))
                 {
                     rb.WriteVelocity(_rbDict[rb.Id].velocity);
@@ -178,7 +222,7 @@ namespace PhotonFusionUtil
                     continue;
                 }
 #endif
-#if CLIENT_STATE_STORER__PHYSICS_2D
+#if CLIENT_STATE_RESTORER__PHYSICS_2D
                 if (nb.TryChangeType<NetworkRigidbody2D>(out var rb2d))
                 {
                     rb2d.WriteVelocity(_rbDict[rb2d.Id].velocity);
@@ -209,10 +253,10 @@ namespace PhotonFusionUtil
         }
     }
 
-    public static class ClientStatesStorerUtil
+    public static class ClientStatesRestorerUtil
     {
         private static Dictionary<NetworkRunner, NetworkRunner> oldRunnerDict = new();
-        private static Dictionary<NetworkRunner, ClientStateStorer> storerDict = new();
+        private static Dictionary<NetworkRunner, ClientStateRestorer> restorerDict = new();
 
         public static bool TryChangeType<T>(this Component component, out T type) where T : Component
         {
@@ -222,24 +266,22 @@ namespace PhotonFusionUtil
             return true;
         }
 
-        private static ClientStateStorer Storer(this NetworkRunner runner)
+        private static ClientStateRestorer Restorer(this NetworkRunner runner)
         {
-            if (!storerDict.ContainsKey(runner))
-            {
-                var storer = new ClientStateStorer();
-                storerDict.Add(runner, storer);
-            }
-            return storerDict[runner];
+            if (restorerDict.TryGetValue(runner, out var storer)) return storer;
+            var newStorer = new ClientStateRestorer();
+            restorerDict.Add(runner, newStorer);
+            return newStorer;
         }
         private static NetworkRunner OldRunner(this NetworkRunner runner)
-            => oldRunnerDict.ContainsKey(runner) ? oldRunnerDict[runner] : null;
+            => oldRunnerDict.TryGetValue(runner, out var oldRunner) ? oldRunner : null;
 
         /// <summary>
         /// Add at the beginning of OnHostMigration()
         /// </summary>
         public static void Store(this NetworkRunner runner, Func<NetworkObject, bool> storeConditions = null)
         {
-            runner.Storer().Store(runner, storeConditions);
+            runner.Restorer().Store(runner, storeConditions);
         }
 
         /// <summary>
@@ -254,7 +296,7 @@ namespace PhotonFusionUtil
             Func<IEnumerable<NetworkObject>, IEnumerable<NetworkObject>> spawnOrder = null,
             Action<NetworkRunner, NetworkObject> onBeforeSpawned = null, Action<NetworkRunner, NetworkObject> onAfterSpawned = null)
         {
-            runner.OldRunner().Storer().SpawnsAndRestores(runner, spawnOrder, onBeforeSpawned, onAfterSpawned);
+            runner.OldRunner().Restorer().SpawnsAndRestores(runner, spawnOrder, onBeforeSpawned, onAfterSpawned);
         }
 
         /// <summary>
@@ -262,41 +304,40 @@ namespace PhotonFusionUtil
         /// </summary>
         public static void StoreAndTryRestore<T>(this NetworkRunner runner, object uniqueId, Lazy<object> store, Action<T> restore)
         {
-            runner.Storer().Add(uniqueId, store);
-            if (oldRunnerDict.ContainsKey(runner))
+            runner.Restorer().Add(uniqueId, store);
+            if (oldRunnerDict.TryGetValue(runner, out var oldRunner))
             {
-                runner.OldRunner().Storer().TryRestore<T>(uniqueId, receiveData => restore?.Invoke(receiveData));
+                oldRunner.Restorer().TryRestore<T>(uniqueId, receiveData => restore?.Invoke(receiveData));
             }
         }
 
         public static bool IsRestoring(this NetworkRunner runner)
-            => oldRunnerDict.ContainsKey(runner) && storerDict.ContainsKey(runner.OldRunner());
+            => oldRunnerDict.TryGetValue(runner, out var oldRunner) && restorerDict.TryGetValue(oldRunner, out _);
 
-#if CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
         /// <summary>
         /// Can handle NetworkId changes. Use with Spawned()
+        ///  Does not work if restoreOnAfterSnapshot is false
         /// </summary>
         public static void ReceiveUpdatedNetworkId(
             this NetworkRunner runner,
             Action<(NetworkId oldId, NetworkId newId)> updated,
             params NetworkId[] networkIds)
         {
-            if (!oldRunnerDict.ContainsKey(runner)) return;
+            if (!oldRunnerDict.TryGetValue(runner, out var oldRunner)) return;
             foreach (var id in networkIds)
             {
-                runner.OldRunner().Storer().CheckUpdateNetworkId(id, newId => updated?.Invoke((id, newId)));
+                oldRunner.Restorer().CheckUpdateNetworkId(id, newId => updated?.Invoke((id, newId)));
             }
         }
-#endif
 
         /// <summary>
         /// Add at the end of OnPlayerJoined()
         /// </summary>
-        public static void RemoveOldRunnerAndStorer(this NetworkRunner runner)
+        public static void RemoveOldRunnerAndRestorer(this NetworkRunner runner)
         {
-            if (runner.OldRunner() != null && storerDict.ContainsKey(runner.OldRunner()))
+            if (oldRunnerDict.TryGetValue(runner, out var oldRunner) && restorerDict.TryGetValue(oldRunner, out var _))
             {
-                storerDict.Remove(runner.OldRunner());
+                restorerDict.Remove(oldRunner);
                 oldRunnerDict.Remove(runner);
             }
         }
