@@ -15,8 +15,8 @@ namespace PhotonFusionUtil
         private int _tick;
 
         private Dictionary<NetworkId, NetworkPrefabId> _prefabDict;
-        private Dictionary<NetworkId, (Vector3 pos, Rotation rot)> _transformDict;
-        private Dictionary<NetworkId, (
+        private Dictionary<NetworkBehaviourId, (Vector3 pos, Rotation rot)> _transformDict;
+        private Dictionary<NetworkBehaviourId, (
             Vector3 velocity, Vector3 angularVelocity,
             float mass, float drag, float aDrag,
             NetworkRigidbodyFlags flags, int constraints)> _rbDict;
@@ -62,39 +62,44 @@ namespace PhotonFusionUtil
                 if (_prefabDict.ContainsKey(NB.Object.Id)) continue;
                 if (storeConditions.Invoke(NB.Object) && runner.Config.PrefabTable.TryGetId(NB.Object.NetworkGuid, out var prefabId))
                 {
-                    var netId = NB.Object.Id;
-                    var position = Vector3.zero;
-                    var rotation = Quaternion.identity;
+                    _prefabDict.Add(NB.Object.Id, prefabId);
+
+                    foreach (var nb in NB.Object.NetworkedBehaviours)
+                    {
 
 #if CLIENT_STATE_STORER__PHYSICS
-                    if (NB.Object.TryGetBehaviour<NetworkRigidbody>(out var rb))
-                    {
-                        rb.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
-                        _rbDict.Add(netId, (rb.ReadVelocity(), rb.ReadAngularVelocity(),
-                            rb.ReadMass(), rb.ReadDrag(), rb.ReadAngularDrag(), flags, (int)constraints));
-                    }
+                        if (nb.TryChangeType<NetworkRigidbody>(out var rb))
+                        {
+                            rb.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
+                            _rbDict.Add(rb.Id, (rb.ReadVelocity(), rb.ReadAngularVelocity(),
+                                rb.ReadMass(), rb.ReadDrag(), rb.ReadAngularDrag(), flags, (int)constraints));
+
+                            _transformDict.Add(rb.Id, (rb.ReadPosition(), rb.ReadRotation()));
+                            continue;
+                        }
 #endif
 #if CLIENT_STATE_STORER__PHYSICS_2D
-                    if (NB.Object.TryGetBehaviour<NetworkRigidbody2D>(out var rb2d))
-                    {
-                        rb2d.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
-                        _rbDict.Add(netId, (rb2d.ReadVelocity(), Vector3.forward * rb2d.ReadAngularVelocity(),
-                            rb2d.ReadMass(), rb2d.ReadDrag(), rb2d.ReadAngularDrag(), flags, (int)constraints));
-                    }
-#endif
-                    if (NB.Object.TryGetBehaviour<NetworkPositionRotation>(out var posRot))
-                    {
-                        position = posRot.ReadPosition();
-                        rotation = posRot.ReadRotation();
-                    }
-                    else if (NB.Object.TryGetBehaviour<NetworkPosition>(out var pos))
-                    {
-                        position = pos.ReadPosition();
-                        rotation = Quaternion.identity;
-                    }
+                        if (nb.TryChangeType<NetworkRigidbody2D>(out var rb2d))
+                        {
+                            rb2d.ReadNetworkRigidbodyFlags(out var flags, out var constraints);
+                            _rbDict.Add(rb2d.Id, (rb2d.ReadVelocity(), Vector3.forward * rb2d.ReadAngularVelocity(),
+                                rb2d.ReadMass(), rb2d.ReadDrag(), rb2d.ReadAngularDrag(), flags, (int)constraints));
 
-                    _transformDict.Add(netId, (position, rotation));
-                    _prefabDict.Add(netId, prefabId);
+                            _transformDict.Add(rb2d.Id, (rb.ReadPosition(), rb.ReadRotation()));
+                            continue;
+                        }
+#endif
+                        if (nb.TryChangeType<NetworkPositionRotation>(out var posRot))
+                        {
+                            _transformDict.Add(posRot.Id, (posRot.ReadPosition(), posRot.ReadRotation()));
+                            continue;
+                        }
+                        if (nb.TryChangeType<NetworkPosition>(out var pos))
+                        {
+                            _transformDict.Add(pos.Id, (pos.ReadPosition(), Quaternion.identity));
+                            continue;
+                        }
+                    }
                 }
             }
 
@@ -122,14 +127,14 @@ namespace PhotonFusionUtil
                 if (!_prefabDict.ContainsKey(no.Id)) continue;
                 _prefabDict.Remove(no.Id);
 
-                var networkObject = runner.Spawn(no, _transformDict[no.Id].pos, _transformDict[no.Id].rot,
+                var networkObject = runner.Spawn(no,
                     onBeforeSpawned: (runner, newNO) =>
                     {
                         newNO.CopyStateFrom(no);
                         OnBeforeSpawnedBase(newNO.Id, newNO);
                         onBeforeSpawned?.Invoke(runner, newNO);
                     });
-                onAfterSpawned?.Invoke(runner, no);
+                onAfterSpawned?.Invoke(runner, networkObject);
             }
 
 #if CLIENT_STATE_STORER__SPAWN_AFTER_SNAPSHOT
@@ -141,7 +146,7 @@ namespace PhotonFusionUtil
                 var oldNetId = pair.Key;
                 var prefabId = pair.Value;
 
-                var networkObject = runner.Spawn(prefabId, _transformDict[oldNetId].pos, _transformDict[oldNetId].rot,
+                var networkObject = runner.Spawn(prefabId,
                     onBeforeSpawned: (runner, NO) =>
                     {
                         OnBeforeSpawnedBase(oldNetId, NO);
@@ -153,30 +158,54 @@ namespace PhotonFusionUtil
             }
 #endif
         }
+
         private void OnBeforeSpawnedBase(NetworkId netId, NetworkObject no)
         {
-#if CLIENT_STATE_STORER__PHYSICS
-            if (no.TryGetBehaviour<NetworkRigidbody>(out var rb))
+            foreach (var nb in no.NetworkedBehaviours)
             {
-                rb.WriteVelocity(_rbDict[netId].velocity);
-                rb.WriteAngularVelocity(_rbDict[netId].angularVelocity);
-                rb.WriteNetworkRigidbodyFlags(_rbDict[netId].flags, (RigidbodyConstraints)_rbDict[netId].constraints);
-                rb.WriteMass(_rbDict[netId].mass);
-                rb.WriteDrag(_rbDict[netId].drag);
-                rb.WriteAngularDrag(_rbDict[netId].aDrag);
-            }
+#if CLIENT_STATE_STORER__PHYSICS
+                if (nb.TryChangeType<NetworkRigidbody>(out var rb))
+                {
+                    rb.WriteVelocity(_rbDict[rb.Id].velocity);
+                    rb.WriteAngularVelocity(_rbDict[rb.Id].angularVelocity);
+                    rb.WriteNetworkRigidbodyFlags(_rbDict[rb.Id].flags, (RigidbodyConstraints)_rbDict[rb.Id].constraints);
+                    rb.WriteMass(_rbDict[rb.Id].mass);
+                    rb.WriteDrag(_rbDict[rb.Id].drag);
+                    rb.WriteAngularDrag(_rbDict[rb.Id].aDrag);
+
+                    rb.WritePosition(_transformDict[rb.Id].pos);
+                    rb.WriteRotation(_transformDict[rb.Id].rot);
+                    continue;
+                }
 #endif
 #if CLIENT_STATE_STORER__PHYSICS_2D
-            else if (no.TryGetBehaviour<NetworkRigidbody2D>(out var rb2d))
-            {
-                rb2d.WriteVelocity(_rbDict[netId].velocity);
-                rb2d.WriteAngularVelocity(_rbDict[netId].angularVelocity.z);
-                rb2d.WriteNetworkRigidbodyFlags(_rbDict[netId].flags, (RigidbodyConstraints2D)_rbDict[netId].constraints);
-                rb2d.WriteMass(_rbDict[netId].mass);
-                rb2d.WriteDrag(_rbDict[netId].drag);
-                rb2d.WriteAngularDrag(_rbDict[netId].aDrag);
-            }
+                if (nb.TryChangeType<NetworkRigidbody2D>(out var rb2d))
+                {
+                    rb2d.WriteVelocity(_rbDict[rb2d.Id].velocity);
+                    rb2d.WriteAngularVelocity(_rbDict[rb2d.Id].angularVelocity.z);
+                    rb2d.WriteNetworkRigidbodyFlags(_rbDict[rb2d.Id].flags, (RigidbodyConstraints2D)_rbDict[rb2d.Id].constraints);
+                    rb2d.WriteMass(_rbDict[rb2d.Id].mass);
+                    rb2d.WriteDrag(_rbDict[rb2d.Id].drag);
+                    rb2d.WriteAngularDrag(_rbDict[rb2d.Id].aDrag);
+
+                    rb2d.WritePosition(_transformDict[rb2d.Id].pos);
+                    rb2d.WriteRotation(_transformDict[rb2d.Id].rot);
+                    continue;
+                }
 #endif
+                if (nb.TryChangeType<NetworkPositionRotation>(out var posRot))
+                {
+                    posRot.WritePosition(_transformDict[posRot.Id].pos);
+                    posRot.WriteRotation(_transformDict[posRot.Id].rot);
+                    continue;
+                }
+
+                if (nb.TryChangeType<NetworkPosition>(out var pos))
+                {
+                    pos.WritePosition(_transformDict[pos.Id].pos);
+                    continue;
+                }
+            }
         }
     }
 
@@ -184,6 +213,14 @@ namespace PhotonFusionUtil
     {
         private static Dictionary<NetworkRunner, NetworkRunner> oldRunnerDict = new();
         private static Dictionary<NetworkRunner, ClientStateStorer> storerDict = new();
+
+        public static bool TryChangeType<T>(this Component component, out T type) where T : Component
+        {
+            type = null;
+            if (component.GetType() != typeof(T)) return false;
+            type = component as T;
+            return true;
+        }
 
         private static ClientStateStorer Storer(this NetworkRunner runner)
         {
