@@ -11,15 +11,15 @@ namespace PhotonFusionUtil
 {
     public class ClientStateRestorer
     {
-        private bool _restoreSpawnsOnAfterSnapshot, _storePredictions;
+        public int Tick { get; private set; }
+        public bool RestoreSpawnsOnAfterSnapshot { get; private set; }
+        public bool UsePredictionsOfPhysicsAndPosRot { get; private set; }
 
-        public ClientStateRestorer(bool restoreOnAfterSnapshot = true, bool storePredictions = false)
+        public ClientStateRestorer(bool restoreSpawnOnAfterSnapshot = true, bool usePredictionsOfPhysicsAndPosRot = false)
         {
-            _restoreSpawnsOnAfterSnapshot = restoreOnAfterSnapshot;
-            _storePredictions = storePredictions;
+            RestoreSpawnsOnAfterSnapshot = restoreSpawnOnAfterSnapshot;
+            UsePredictionsOfPhysicsAndPosRot = usePredictionsOfPhysicsAndPosRot;
         }
-
-        private int _tick;
 
         private Dictionary<NetworkId, NetworkPrefabId> _prefabDict;
         private Dictionary<NetworkBehaviourId, (Vector3 pos, Rotation rot)> _transformDict;
@@ -57,7 +57,7 @@ namespace PhotonFusionUtil
         public void Store(NetworkRunner runner, Func<NetworkObject, bool> storeConditions = null)
         {
             storeConditions ??= (no) => true;
-            _tick = runner.Tick;
+            Tick = runner.Tick;
             var netBehaviours = runner.GetAllBehaviours<NetworkBehaviour>();
 
             var capacity = netBehaviours.Count / 2;
@@ -77,7 +77,7 @@ namespace PhotonFusionUtil
 #if CLIENT_STATE_RESTORER__PHYSICS
                         if (nb.TryChangeType<NetworkRigidbody>(out var rb))
                         {
-                            if (_storePredictions)
+                            if (UsePredictionsOfPhysicsAndPosRot)
                             {
                                 var netFlags = rb.Rigidbody.isKinematic ? 0x1 : 0;
                                 netFlags |= rb.Rigidbody.useGravity ? 0x2 : 0;
@@ -102,7 +102,7 @@ namespace PhotonFusionUtil
 #if CLIENT_STATE_RESTORER__PHYSICS_2D
                         if (nb.TryChangeType<NetworkRigidbody2D>(out var rb2d))
                         {
-                            if (_storePredictions)
+                            if (UsePredictionsOfPhysicsAndPosRot)
                             {
                                 var netFlags = rb2d.Rigidbody.isKinematic ? 0x1 : 0;
                                 netFlags |= rb2d.Rigidbody.IsSleeping() ? 0x4 : 0;
@@ -125,7 +125,7 @@ namespace PhotonFusionUtil
 #endif
                         if (nb.TryChangeType<NetworkPositionRotation>(out var posRot))
                         {
-                            if (_storePredictions)
+                            if (UsePredictionsOfPhysicsAndPosRot)
                             {
                                 _transformDict.Add(posRot.Id, (posRot.Transform.position, posRot.Transform.rotation));
                                 continue;
@@ -135,7 +135,7 @@ namespace PhotonFusionUtil
                         }
                         if (nb.TryChangeType<NetworkPosition>(out var pos))
                         {
-                            if (_storePredictions)
+                            if (UsePredictionsOfPhysicsAndPosRot)
                             {
                                 _transformDict.Add(pos.Id, (pos.Transform.position, Quaternion.identity));
                                 continue;
@@ -164,12 +164,12 @@ namespace PhotonFusionUtil
             spawnOrder ??= list => list;
 
             // Advance ResumeSnapshot's Tick to old Runner's Tick
-            while (runner.Tick != _tick) runner.Simulation.Update(runner.DeltaTime);
+            while (runner.Tick != Tick) runner.Simulation.Update(runner.DeltaTime);
 
             foreach (var no in spawnOrder.Invoke(runner.GetResumeSnapshotNetworkObjects()))
             {
                 if (!_prefabDict.TryGetValue(no.Id, out _)) continue;
-                if (_restoreSpawnsOnAfterSnapshot) _prefabDict.Remove(no.Id);
+                if (RestoreSpawnsOnAfterSnapshot) _prefabDict.Remove(no.Id);
 
                 var networkObject = runner.Spawn(no,
                     onBeforeSpawned: (runner, newNO) =>
@@ -181,7 +181,7 @@ namespace PhotonFusionUtil
                 onAfterSpawned?.Invoke(runner, networkObject);
             }
 
-            if (!_restoreSpawnsOnAfterSnapshot) return;
+            if (!RestoreSpawnsOnAfterSnapshot) return;
 
             _updatedNetworkIdDict = new(_prefabDict.Count);
 
