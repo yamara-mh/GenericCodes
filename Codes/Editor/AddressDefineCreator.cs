@@ -9,7 +9,7 @@ using Yamara;
 using UnityEditorInternal;
 using System.Text.RegularExpressions;
 
-namespace Addressables
+namespace AddressableUtil
 {
     [CreateAssetMenu(menuName = "Addressables/Create AddressDefineCreator", fileName = "AddressDefineCreator")]
     public class AddressDefineCreator : ScriptableObject
@@ -85,7 +85,7 @@ namespace Addressables
 
         private void CreateAddressDefineFile(Dictionary<AddressableAssetGroup, List<AddressableAssetEntry>> assetDict)
         {
-            var builder = new ScriptBuilder().Namespace(nameof(Addressables)).OpenBrace();
+            var builder = new ScriptBuilder().Namespace(nameof(AddressableUtil)).OpenBrace();
             builder.Append("public static class ").AppendLine(ClassName).OpenBrace();
 
             foreach (var pair in assetDict)
