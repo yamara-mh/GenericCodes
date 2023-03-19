@@ -55,7 +55,7 @@ namespace Yamara
             {
                 p.UseCount++;
 #if USE_UNIRX
-            if (link) link.OnDestroyAsObservable().Subscribe(_ => RemoveOrDecrement(particleRef));
+                if (link) link.OnDestroyAsObservable().Subscribe(_ => RemoveOrDecrement(particleRef));
 #endif
                 return p.Instance;
             }
