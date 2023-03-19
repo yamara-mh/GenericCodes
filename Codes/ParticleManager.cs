@@ -13,26 +13,25 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Yamara
 {
-    public class ParticleManagerData
-    {
-        public int UseCount;
-        public ParticleSystem Instance;
-        public AsyncOperationHandle<GameObject> Handle;
-
-        public ParticleManagerData(int useCount, ParticleSystem instance, AsyncOperationHandle<GameObject> handle)
-        {
-            UseCount = useCount;
-            Instance = instance;
-            Handle = handle;
-        }
-    }
-
     [DefaultExecutionOrder(-100)]
     public class ParticleManager : MonoBehaviour
     {
         public static ParticleManager Instance { get; private set; } = null;
 
-        private Dictionary<string, ParticleManagerData> _particles = new();
+        private Dictionary<string, ParticleData> _particles = new();
+        public class ParticleData
+        {
+            public int UseCount;
+            public ParticleSystem Instance;
+            public AsyncOperationHandle<GameObject> Handle;
+
+            public ParticleData(int useCount, ParticleSystem instance, AsyncOperationHandle<GameObject> handle)
+            {
+                UseCount = useCount;
+                Instance = instance;
+                Handle = handle;
+            }
+        }
 
         // Generate ParticleManager on awake
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
