@@ -1,6 +1,7 @@
 using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -33,19 +34,20 @@ namespace Yamara
         private static void Generate()
         {
             var manager = new GameObject().AddComponent<ParticleManager>();
-            manager.name = "ParticleManager";
+            manager.name = nameof(ParticleManager);
             Instance = manager;
             DontDestroyOnLoad(Instance.gameObject);
         }
 
         private void OnDestroy() => RemoveAll();
 
-        public static async void AddOrIncrement(AssetReferenceT<GameObject> particleRef)
+        public static async void AddOrIncrement(AssetReferenceT<GameObject> particleRef) => await AddOrIncrementAsync(particleRef);
+        public static async Task<ParticleSystem> AddOrIncrementAsync(AssetReferenceT<GameObject> particleRef)
         {
             if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var p))
             {
                 p.Count++;
-                return;
+                return p.Instance;
             }
 
             var handle = particleRef.LoadAssetAsync();
@@ -55,24 +57,30 @@ namespace Yamara
             main.playOnAwake = false;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             Instance._particles.Add(particleRef.AssetGUID, new(1, particle, handle));
+            return particle;
         }
 
         public static bool Contains(AssetReferenceT<GameObject> particleRef) => Contains(particleRef.AssetGUID);
         public static bool Contains(string AssetGUID) => Instance._particles.TryGetValue(AssetGUID, out _);
 
-        public static void RemoveOrDecrement(AssetReferenceT<GameObject> particleRef, bool force = false) => RemoveOrDecrement(particleRef.AssetGUID, force);
-        public static void RemoveOrDecrement(string AssetGUID, bool force = false)
+        public static void RemoveOrDecrement(AssetReferenceT<GameObject> particleRef) => RemoveOrDecrement(particleRef.AssetGUID);
+        public static void RemoveOrDecrement(string AssetGUID)
         {
             if (!Instance._particles.TryGetValue(AssetGUID, out var particle)) return;
-            if (--particle.Count > 0 || force) return;
-
+            if (--particle.Count > 0) return;
+            ForceRemove(AssetGUID);
+        }
+        public static void ForceRemove(string AssetGUID)
+        {
+            if (!Instance._particles.TryGetValue(AssetGUID, out var particle)) return;
             Instance._particles.Remove(AssetGUID);
             Destroy(particle.Instance.gameObject);
             Addressables.Release(particle.Handle);
         }
+
         public static void RemoveAll()
         {
-            foreach (var key in Instance._particles.Select(d => d.Key).ToArray()) RemoveOrDecrement(key, true);
+            foreach (var key in Instance._particles.Select(d => d.Key).ToArray()) ForceRemove(key);
         }
 
         public static ParticleSystem Play(AssetReferenceT<GameObject> particleRef, Vector3 position, Quaternion? quaternion = null, bool play = true)
@@ -82,8 +90,18 @@ namespace Yamara
                 Instance.PlayParticle(particle.Instance, position, quaternion, play);
                 return particle.Instance;
             }
-            Debug.LogError("Not added to ParticleManager : " + particleRef);
+            Debug.Log("Not added to ParticleManager : " + particleRef);
             return null;
+        }
+        public static async Task<ParticleSystem> PlaySafe(AssetReferenceT<GameObject> particleRef, Vector3 position, Quaternion? quaternion = null, bool play = true)
+        {
+            if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var particle))
+            {
+                Instance.PlayParticle(particle.Instance, position, quaternion, play);
+                return particle.Instance;
+            }
+            await AddOrIncrementAsync(particleRef);
+            return Play(particleRef, position, quaternion, play);
         }
 
         private void PlayParticle(ParticleSystem particle, Vector3 position, Quaternion? quaternion = null, bool play = true)
