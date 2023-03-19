@@ -48,7 +48,7 @@ namespace Yamara
 
         public static async Task<ParticleSystem> AddOrIncrementAsync(AssetReferenceT<GameObject> particleRef
 #if USE_UNIRX
-            , Component link = null
+            , Component link
 #endif
             )
         {
