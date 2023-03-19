@@ -10,13 +10,13 @@ namespace Yamara
 {
     public class ParticleManagerData
     {
-        public int Count;
+        public int UseCount;
         public ParticleSystem Instance;
         public AsyncOperationHandle<GameObject> Handle;
 
-        public ParticleManagerData(int count, ParticleSystem instance, AsyncOperationHandle<GameObject> handle)
+        public ParticleManagerData(int useCount, ParticleSystem instance, AsyncOperationHandle<GameObject> handle)
         {
-            Count = count;
+            UseCount = useCount;
             Instance = instance;
             Handle = handle;
         }
@@ -45,7 +45,7 @@ namespace Yamara
         {
             if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var p))
             {
-                p.Count++;
+                p.UseCount++;
                 return p.Instance;
             }
 
@@ -66,7 +66,7 @@ namespace Yamara
         public static void RemoveOrDecrement(string AssetGUID)
         {
             if (!Instance._particles.TryGetValue(AssetGUID, out var particle)) return;
-            if (--particle.Count > 0) return;
+            if (--particle.UseCount > 0) return;
             ForceRemove(AssetGUID);
         }
         public static void ForceRemove(string AssetGUID)
