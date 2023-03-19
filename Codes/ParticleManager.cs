@@ -1,4 +1,3 @@
-using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -41,7 +40,11 @@ namespace Yamara
 
         private void OnDestroy() => RemoveAll();
 
-        public static async Task<ParticleSystem> AddOrIncrementAsync(AssetReferenceT<GameObject> particleRef)
+        public static async Task<ParticleSystem> AddOrIncrementAsync(AssetReferenceT<GameObject> particleRef
+#if USE_UNIRX
+            , Component link = null
+#endif
+            )
         {
             if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var p))
             {
@@ -56,6 +59,9 @@ namespace Yamara
             main.playOnAwake = false;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             Instance._particles.Add(particleRef.AssetGUID, new(1, particle, handle));
+#if USE_UNIRX
+            if (link) link.OnDestroyAsObservable().Subscribe(_ => RemoveOrDecrement(particleRef));
+#endif
             return particle;
         }
 
