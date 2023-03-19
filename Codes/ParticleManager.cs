@@ -41,7 +41,6 @@ namespace Yamara
 
         private void OnDestroy() => RemoveAll();
 
-        public static async void AddOrIncrement(AssetReferenceT<GameObject> particleRef) => await AddOrIncrementAsync(particleRef);
         public static async Task<ParticleSystem> AddOrIncrementAsync(AssetReferenceT<GameObject> particleRef)
         {
             if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var p))
@@ -90,7 +89,7 @@ namespace Yamara
                 Instance.PlayParticle(particle.Instance, position, quaternion, play);
                 return particle.Instance;
             }
-            Debug.Log("Not added to ParticleManager : " + particleRef);
+            Debug.LogError("Not added to ParticleManager : " + particleRef);
             return null;
         }
         private void PlayParticle(ParticleSystem particle, Vector3 position, Quaternion? quaternion = null, bool play = true)
