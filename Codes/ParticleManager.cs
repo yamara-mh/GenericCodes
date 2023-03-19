@@ -93,17 +93,6 @@ namespace Yamara
             Debug.Log("Not added to ParticleManager : " + particleRef);
             return null;
         }
-        public static async Task<ParticleSystem> PlaySafe(AssetReferenceT<GameObject> particleRef, Vector3 position, Quaternion? quaternion = null, bool play = true)
-        {
-            if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var particle))
-            {
-                Instance.PlayParticle(particle.Instance, position, quaternion, play);
-                return particle.Instance;
-            }
-            await AddOrIncrementAsync(particleRef);
-            return Play(particleRef, position, quaternion, play);
-        }
-
         private void PlayParticle(ParticleSystem particle, Vector3 position, Quaternion? quaternion = null, bool play = true)
         {
             quaternion ??= Quaternion.identity;
