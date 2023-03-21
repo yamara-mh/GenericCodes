@@ -1,3 +1,4 @@
+using Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,15 +12,15 @@ namespace Yamara
     {
         [SerializeField] public int AudioSourceCount = 8;
 
-        [SerializeField] public AudioMixerGroup AudioMixerGroup;
+        [SerializeField] public AudioMixerGroup DefaultAudioMixerGroup;
 
         [SerializeField, Range(0f, 1f)] public float DefaultVolume = 1f;
 
         [SerializeField] public float DefaultMaxDistance = 50f;
 
-        [SerializeField, Range(0f, 360f)] public float Spread = 30f;
+        [SerializeField, Range(0f, 360f)] public float DefaultSpread = 30f;
 
-        [SerializeField, Range(0f, 5f)] public float DopplerLevel = 1f;
+        [SerializeField, Range(0f, 5f)] public float DefaultDopplerLevel = 1f;
     }
 
     public class SEManager : MonoBehaviour
@@ -42,9 +43,9 @@ namespace Yamara
 
         public static SEManagerSettings Settings { get; private set; } = null;
         public static bool IsPausing { get; private set; } = false;
+        public static int UsingCount { get; private set; } = 0;
 
         private static int _lowestPriority = MaxPriority;
-        private static int _playingCount = 0;
 
         // Generate SEManager on awake
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -66,12 +67,8 @@ namespace Yamara
             var audioSource = new GameObject().AddComponent<AudioSource>();
             audioSource.name = nameof(AudioSource);
             audioSource.transform.SetParent(Instance.transform);
+            CleanAudioSource(audioSource);
 
-            audioSource.outputAudioMixerGroup = Settings.AudioMixerGroup;
-            audioSource.playOnAwake = false;
-            audioSource.priority = MaxPriority;
-            audioSource.spread = Settings.Spread;
-            audioSource.dopplerLevel = Settings.DopplerLevel;
             _sourcesData.Add(new(audioSource));
         }
 
@@ -87,42 +84,32 @@ namespace Yamara
                 }
                 else if (sourceData.Source.clip)
                 {
-                    RefreshData(sourceData);
+                    CleanData(sourceData);
                     _lowestPriority = MaxPriority;
-                    _playingCount--;
+                    UsingCount--;
                 }
             }
         }
 
-        private static void RefreshData(AudioSourceData data)
+        private static void CleanAudioSource(AudioSource source)
         {
-            var source = data.Source;
-            source.priority = MaxPriority;
             source.clip = null;
-            source.volume = Settings.DefaultVolume;
+            source.priority = MaxPriority;
             source.pitch = 1f;
+            source.outputAudioMixerGroup = Settings.DefaultAudioMixerGroup;
+            source.volume = Settings.DefaultVolume;
             source.maxDistance = Settings.DefaultMaxDistance;
-
-            data.Completed?.Invoke(source);
+            source.spread = Settings.DefaultSpread;
+            source.dopplerLevel = Settings.DefaultDopplerLevel;
+        }
+        private static void CleanData(AudioSourceData data)
+        {
+            CleanAudioSource(data.Source);
+            data.Completed?.Invoke(data.Source);
             data.Completed = null;
         }
 
-
-        public static AudioSource Play(AudioClip clip, Action<AudioSource> completed = null, float delay = 0f)
-            => TryPlayProcess(clip, 0, null, null, completed, delay);
-        public static AudioSource Play(AudioClip clip, Vector3 position, Action<AudioSource> completed = null, float delay = 0f)
-            => TryPlayProcess(clip, 0, position, null, completed, delay);
-        public static AudioSource Play(AudioClip clip, Transform transform, Action<AudioSource> completed = null, float delay = 0f)
-            => TryPlayProcess(clip, 0, null, transform, completed, delay);
-
-        public static AudioSource TryPlay(AudioClip clip, int priority, Action<AudioSource> completed = null, float delay = 0f)
-                => TryPlayProcess(clip, priority, null, null, completed, delay);
-        public static AudioSource TryPlay(AudioClip clip, int priority, Vector3 position, Action<AudioSource> completed = null, float delay = 0f)
-            => TryPlayProcess(clip, priority, position, null, completed, delay);
-        public static AudioSource TryPlay(AudioClip clip, int priority, Transform transform, Action<AudioSource> completed = null, float delay = 0f)
-            => TryPlayProcess(clip, priority, null, transform, completed, delay);
-
-        private static AudioSource TryPlayProcess(AudioClip clip, int priority = 0, Vector3? position = null, Transform transform = null, Action<AudioSource> completed = null, float delay = 0f)
+        public static AudioSource TryGetAudioSoure(int priority = 0, Transform transform = null, Vector3? position = null, Action<AudioSource> completed = null)
         {
             if (_sourcesData.Count == 0)
             {
@@ -131,11 +118,11 @@ namespace Yamara
             }
             if (priority > _lowestPriority) return null;
 
-            if (_playingCount + 1 <= Settings.AudioSourceCount)
+            if (UsingCount + 1 <= Settings.AudioSourceCount)
             {
-                _playingCount++;
+                UsingCount++;
                 var data = _sourcesData.First(a => a.Source.priority == MaxPriority);
-                PlayProcess(data, clip, priority, position, transform, completed, delay);
+                GetAudioSourceProcess(data, priority, transform, position, completed);
                 return data.Source;
             }
 
@@ -149,13 +136,12 @@ namespace Yamara
                     sourceData = data;
                 }
             }
-            PlayProcess(sourceData, clip, priority, position, transform, completed, delay);
+            GetAudioSourceProcess(sourceData, priority, transform, position, completed);
             return sourceData.Source;
         }
 
-        private static void PlayProcess(AudioSourceData data, AudioClip clip, int priority, Vector3? pos, Transform transform, Action<AudioSource> completed, float delay)
+        private static void GetAudioSourceProcess(AudioSourceData data, int priority, Transform transform, Vector3? pos, Action<AudioSource> completed)
         {
-            data.Source.clip = clip;
             data.Source.priority = priority;
             data.Target = transform;
             data.Completed = completed;
@@ -172,7 +158,6 @@ namespace Yamara
             }
             else data.Source.spatialBlend = 0f;
 
-            data.Source.PlayDelayed(delay);
             if (IsPausing) data.Source.Pause();
         }
 
@@ -181,9 +166,9 @@ namespace Yamara
             foreach (var item in _sourcesData)
             {
                 item.Source.Stop();
-                RefreshData(item);
+                CleanData(item);
             }
-            _playingCount = 0;
+            UsingCount = 0;
             _lowestPriority = MaxPriority;
         }
 
@@ -197,10 +182,6 @@ namespace Yamara
         {
             IsPausing = false;
             foreach (var item in _sourcesData) item.Source.UnPause();
-        }
-        public static void SetMute(bool mute)
-        {
-            foreach (var item in _sourcesData) item.Source.mute = mute;
         }
 
         public static void ChangeAudioSourcesCount(int count)
@@ -230,18 +211,26 @@ namespace Yamara
 
     public static class SEManagerEx
     {
-        public static AudioSource Play(this AudioClip clip, Action<AudioSource> completed = null, float delay = 0f)
-            => SEManager.Play(clip, completed, delay);
-        public static AudioSource Play(this AudioClip clip, Vector3 position, Action<AudioSource> completed = null, float delay = 0f)
-            => SEManager.Play(clip, position, completed, delay);
-        public static AudioSource Play(this AudioClip clip, Transform transform, Action<AudioSource> completed = null, float delay = 0f)
-            => SEManager.Play(clip, transform, completed, delay);
-
-        public static AudioSource TryPlay(this AudioClip clip, int priority, Action<AudioSource> completed = null, float delay = 0f)
-            => SEManager.TryPlay(clip, priority, completed, delay);
-        public static AudioSource TryPlay(this AudioClip clip, int priority, Vector3 position, Action<AudioSource> completed = null, float delay = 0f)
-            => SEManager.TryPlay(clip, priority, position, completed, delay);
-        public static AudioSource TryPlay(this AudioClip clip, int priority, Transform transform, Action<AudioSource> completed = null, float delay = 0f)
-            => SEManager.TryPlay(clip, priority, transform, completed, delay);
+        public static AudioSource Play(this AudioClip clip, int priority = 0, Action<AudioSource> completed = null, float delay = 0f)
+        {
+            var audioSource = SEManager.TryGetAudioSoure(priority, null, null, completed);
+            audioSource.clip = clip;
+            audioSource.PlayDelayed(delay);
+            return audioSource;
+        }
+        public static AudioSource Play(this AudioClip clip, Vector3 position, int priority = 0, Action<AudioSource> completed = null, float delay = 0f)
+        {
+            var audioSource = SEManager.TryGetAudioSoure(priority, null, position, completed);
+            audioSource.clip = clip;
+            audioSource.PlayDelayed(delay);
+            return audioSource;
+        }
+        public static AudioSource Play(this AudioClip clip, Transform transform, int priority = 0, Action<AudioSource> completed = null, float delay = 0f)
+        {
+            var audioSource = SEManager.TryGetAudioSoure(priority, transform, null, completed);
+            audioSource.clip = clip;
+            audioSource.PlayDelayed(delay);
+            return audioSource;
+        }
     }
 }
