@@ -26,6 +26,7 @@ namespace Extensions
         public static AudioSource Play(this AudioSource audioSource, AudioClip[] clips, float volume, float volumeRange, float pitch, float pitchRange, float delay = 0f)
             => audioSource.SetClip(clips).SetVolume(volume, volumeRange).SetPitch(pitch, pitchRange).Play(delay);
 
+
         public static AudioSource SetClip(this AudioSource audioSource, AudioClip clip)
         {
             audioSource.clip = clip;
@@ -72,9 +73,21 @@ namespace Extensions
             return audioSource;
         }
 
+        public static AudioSource SetOutput(this AudioSource audioSource, AudioMixerGroup group)
+        {
+            audioSource.outputAudioMixerGroup = group;
+            return audioSource;
+        }
+
         public static AudioSource SetSpatialBlend(this AudioSource audioSource, float spatialBlend)
         {
             audioSource.spatialBlend = spatialBlend;
+            return audioSource;
+        }
+
+        public static AudioSource SetDopplerLevel(this AudioSource audioSource, float dopplerLevel)
+        {
+            audioSource.dopplerLevel = dopplerLevel;
             return audioSource;
         }
 
@@ -84,10 +97,81 @@ namespace Extensions
             return audioSource;
         }
 
-        public static AudioSource SetDopplerLevel(this AudioSource audioSource, float dopplerLevel)
+        public static AudioSource SetBypassSettings(this AudioSource audioSource, bool bypassEffects, bool bypassListenerEffects, bool bypassReverbZones)
         {
-            audioSource.dopplerLevel = dopplerLevel;
+            audioSource.bypassEffects = bypassEffects;
+            audioSource.bypassListenerEffects = bypassListenerEffects;
+            audioSource.bypassReverbZones = bypassReverbZones;
             return audioSource;
         }
+
+        /*// Infrequently used functions
+        
+        public static AudioSource SetBypassEffects(this AudioSource audioSource, bool flag)
+        {
+            audioSource.bypassEffects = flag;
+            return audioSource;
+        }
+        public static AudioSource SetBypassListenerEffects(this AudioSource audioSource, bool flag)
+        {
+            audioSource.bypassListenerEffects = flag;
+            return audioSource;
+        }
+        public static AudioSource SetBypassReverbZones(this AudioSource audioSource, bool flag)
+        {
+            audioSource.bypassReverbZones = flag;
+            return audioSource;
+        }
+        public static AudioSource SetMute(this AudioSource audioSource, bool flag)
+        {
+            audioSource.mute = flag;
+            return audioSource;
+        }
+        public static AudioSource SetPlayOnAwake(this AudioSource audioSource, bool flag)
+        {
+            audioSource.playOnAwake = flag;
+            return audioSource;
+        }
+        public static AudioSource SetLoop(this AudioSource audioSource, bool flag)
+        {
+            audioSource.loop = flag;
+            return audioSource;
+        }
+        
+        public static AudioSource SetStereoPan(this AudioSource audioSource, float panStereo)
+        {
+            audioSource.panStereo = panStereo;
+            return audioSource;
+        }
+        public static AudioSource SetStereoPan(this AudioSource audioSource, float panStereo, float range)
+        {
+            audioSource.panStereo = panStereo + Random.Range(-range, range);
+            return audioSource;
+        }
+
+        public static AudioSource SetIgnoreListenerPause(this AudioSource audioSource, bool flag)
+        {
+            audioSource.ignoreListenerPause = flag;
+            return audioSource;
+        }
+
+        public static AudioSource SetSpatialize(this AudioSource audioSource, bool flag)
+        {
+            audioSource.spatialize = flag;
+            return audioSource;
+        }
+
+        public static AudioSource SetSpatializePostEffects(this AudioSource audioSource, bool flag)
+        {
+            audioSource.spatializePostEffects = flag;
+            return audioSource;
+        }
+
+        public static AudioSource SetVelocityUpdateMode(this AudioSource audioSource, AudioVelocityUpdateMode mode)
+        {
+            audioSource.velocityUpdateMode = mode;
+            return audioSource;
+        }
+        // */
     }
 }
