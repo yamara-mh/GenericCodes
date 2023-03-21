@@ -13,17 +13,16 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Yamara
 {
-    [DefaultExecutionOrder(-100)]
     public class ParticleManager : MonoBehaviour
     {
         public static ParticleManager Instance { get; private set; } = null;
 
         private Dictionary<string, ParticleData> _particles = new();
-        public class ParticleData
+        private class ParticleData
         {
             public int UseCount;
             public ParticleSystem Instance;
-            public AsyncOperationHandle<GameObject> Handle;
+            public AsyncOperationHandle<GameObject>  Handle;
 
             public ParticleData(int useCount, ParticleSystem instance, AsyncOperationHandle<GameObject> handle)
             {
