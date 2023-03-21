@@ -17,17 +17,17 @@ namespace Yamara
     {
         public static ParticleManager Instance { get; private set; } = null;
 
-        private Dictionary<string, ParticleData> _particles = new();
+        private Dictionary<string, ParticleData> _data = new();
         private class ParticleData
         {
             public int UseCount;
-            public ParticleSystem Instance;
+            public ParticleSystem Particle;
             public AsyncOperationHandle<GameObject> Handle;
 
-            public ParticleData(int useCount, ParticleSystem instance, AsyncOperationHandle<GameObject> handle)
+            public ParticleData(int useCount, ParticleSystem particle, AsyncOperationHandle<GameObject> handle)
             {
                 UseCount = useCount;
-                Instance = instance;
+                Particle = particle;
                 Handle = handle;
             }
         }
@@ -50,13 +50,13 @@ namespace Yamara
 #endif
             )
         {
-            if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var p))
+            if (Instance._data.TryGetValue(particleRef.AssetGUID, out var p))
             {
                 p.UseCount++;
 #if USE_UNIRX
                 if (link) link.OnDestroyAsObservable().Subscribe(_ => RemoveOrDecrement(particleRef));
 #endif
-                return p.Instance;
+                return p.Particle;
             }
 
             var handle = particleRef.LoadAssetAsync();
@@ -65,7 +65,7 @@ namespace Yamara
             var main = particle.main;
             main.playOnAwake = false;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            Instance._particles.Add(particleRef.AssetGUID, new(1, particle, handle));
+            Instance._data.Add(particleRef.AssetGUID, new(1, particle, handle));
 #if USE_UNIRX
              if (link) link.OnDestroyAsObservable().Subscribe(_ => RemoveOrDecrement(particleRef));
 #endif
@@ -73,44 +73,44 @@ namespace Yamara
         }
 
         public static bool Contains(AssetReferenceT<GameObject> particleRef) => Contains(particleRef.AssetGUID);
-        public static bool Contains(string AssetGUID) => Instance._particles.TryGetValue(AssetGUID, out _);
+        public static bool Contains(string AssetGUID) => Instance._data.TryGetValue(AssetGUID, out _);
 
         public static void RemoveOrDecrement(AssetReferenceT<GameObject> particleRef) => RemoveOrDecrement(particleRef.AssetGUID);
         public static void RemoveOrDecrement(string AssetGUID)
         {
-            if (!Instance._particles.TryGetValue(AssetGUID, out var particle)) return;
+            if (!Instance._data.TryGetValue(AssetGUID, out var particle)) return;
             if (--particle.UseCount > 0) return;
             ForceRemove(AssetGUID);
         }
         public static void ForceRemove(string AssetGUID)
         {
-            if (!Instance._particles.TryGetValue(AssetGUID, out var particle)) return;
-            Instance._particles.Remove(AssetGUID);
-            Destroy(particle.Instance.gameObject);
+            if (!Instance._data.TryGetValue(AssetGUID, out var particle)) return;
+            Instance._data.Remove(AssetGUID);
+            Destroy(particle.Particle.gameObject);
             Addressables.Release(particle.Handle);
         }
         public static void RemoveAll()
         {
-            foreach (var key in Instance._particles.Select(d => d.Key).ToArray()) ForceRemove(key);
+            foreach (var key in Instance._data.Select(d => d.Key).ToArray()) ForceRemove(key);
         }
 
         public static ParticleSystem Get(AssetReferenceT<GameObject> particleRef)
         {
-            if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var particle)) return particle.Instance;
+            if (Instance._data.TryGetValue(particleRef.AssetGUID, out var particle)) return particle.Particle;
             Debug.LogError("Not added to ParticleManager : " + particleRef);
             return null;
         }
         public static ParticleSystem Get(AssetReferenceT<GameObject> particleRef, Vector3 position, Quaternion? quaternion = null)
         {
-            if (Instance._particles.TryGetValue(particleRef.AssetGUID, out var particle))
+            if (Instance._data.TryGetValue(particleRef.AssetGUID, out var particle))
             {
                 quaternion ??= Quaternion.identity;
-                particle.Instance.transform.SetPositionAndRotation(position, quaternion.Value);
-                return particle.Instance;
+                particle.Particle.transform.SetPositionAndRotation(position, quaternion.Value);
+                return particle.Particle;
             }
             Debug.LogError("Not added to ParticleManager : " + particleRef);
             return null;
         }
-        public static IEnumerable<ParticleSystem> GetAll() => Instance._particles.Values.Select(d => d.Instance);
+        public static IEnumerable<ParticleSystem> GetAll() => Instance._data.Values.Select(d => d.Particle);
     }
 }
