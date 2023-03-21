@@ -22,7 +22,7 @@ namespace Yamara
         {
             public int UseCount;
             public ParticleSystem Instance;
-            public AsyncOperationHandle<GameObject>  Handle;
+            public AsyncOperationHandle<GameObject> Handle;
 
             public ParticleData(int useCount, ParticleSystem instance, AsyncOperationHandle<GameObject> handle)
             {
