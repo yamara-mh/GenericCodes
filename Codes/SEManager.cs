@@ -1,28 +1,10 @@
-using Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.Audio;
 
 namespace Yamara
 {
-    [CreateAssetMenu(fileName = nameof(SEManagerSettings), menuName = nameof(ScriptableObject) + "/Create " + nameof(SEManagerSettings))]
-    public class SEManagerSettings : ScriptableObject
-    {
-        [SerializeField] public int AudioSourceCount = 8;
-
-        [SerializeField] public AudioMixerGroup DefaultAudioMixerGroup;
-
-        [SerializeField, Range(0f, 1f)] public float DefaultVolume = 1f;
-
-        [SerializeField] public float DefaultMaxDistance = 50f;
-
-        [SerializeField, Range(0f, 360f)] public float DefaultSpread = 30f;
-
-        [SerializeField, Range(0f, 5f)] public float DefaultDopplerLevel = 1f;
-    }
-
     public class SEManager : MonoBehaviour
     {
         private const int MaxPriority = byte.MaxValue + 1;
@@ -33,7 +15,7 @@ namespace Yamara
         {
             public readonly AudioSource Source = null;
             public Transform Target = null;
-            public Action<AudioSource> Completed = null;
+            public Action<AudioSource> Ended = null;
             public AudioSourceData(AudioSource source)
             {
                 Source = source;
@@ -59,7 +41,7 @@ namespace Yamara
             Settings = Resources.Load<SEManagerSettings>(nameof(SEManagerSettings));
             if (Settings == null) Debug.LogError(nameof(SEManagerSettings) + " does not exist in Resources");
 
-            for (int i = 0; i < Settings.AudioSourceCount; i++) CreateAudioSource();
+            for (int i = 0; i < Settings.MaxAudioSource; i++) CreateAudioSource();
         }
 
         private static void CreateAudioSource()
@@ -105,11 +87,11 @@ namespace Yamara
         private static void CleanData(AudioSourceData data)
         {
             CleanAudioSource(data.Source);
-            data.Completed?.Invoke(data.Source);
-            data.Completed = null;
+            data.Ended?.Invoke(data.Source);
+            data.Ended = null;
         }
 
-        public static AudioSource TryGetAudioSoure(int priority = 0, Transform transform = null, Vector3? position = null, Action<AudioSource> completed = null)
+        public static AudioSource TryGetAudioSoure(int priority = 0, Transform transform = null, Action<AudioSource> ended = null)
         {
             if (_sourcesData.Count == 0)
             {
@@ -118,11 +100,11 @@ namespace Yamara
             }
             if (priority > _lowestPriority) return null;
 
-            if (UsingCount + 1 <= Settings.AudioSourceCount)
+            if (UsingCount + 1 <= Settings.MaxAudioSource)
             {
                 UsingCount++;
                 var data = _sourcesData.First(a => a.Source.priority == MaxPriority);
-                GetAudioSourceProcess(data, priority, transform, position, completed);
+                GetAudioSourceProcess(data, priority, transform, ended);
                 return data.Source;
             }
 
@@ -136,25 +118,20 @@ namespace Yamara
                     sourceData = data;
                 }
             }
-            GetAudioSourceProcess(sourceData, priority, transform, position, completed);
+            GetAudioSourceProcess(sourceData, priority, transform, ended);
             return sourceData.Source;
         }
 
-        private static void GetAudioSourceProcess(AudioSourceData data, int priority, Transform transform, Vector3? pos, Action<AudioSource> completed)
+        private static void GetAudioSourceProcess(AudioSourceData data, int priority, Transform transform, Action<AudioSource> ended)
         {
             data.Source.priority = priority;
             data.Target = transform;
-            data.Completed = completed;
+            data.Ended = ended;
 
             if (transform)
             {
                 data.Source.spatialBlend = 1f;
                 data.Source.transform.position = transform.position;
-            }
-            else if (pos.HasValue)
-            {
-                data.Source.spatialBlend = 1f;
-                data.Source.transform.position = pos.Value;
             }
             else data.Source.spatialBlend = 0f;
 
@@ -187,49 +164,49 @@ namespace Yamara
         public static void ChangeAudioSourcesCount(int count)
         {
             count = Mathf.Max(0, count);
-            if (count >= Settings.AudioSourceCount)
+            if (count >= Settings.MaxAudioSource)
             {
-                for (int i = Settings.AudioSourceCount; i < count; i++) CreateAudioSource();
-                Settings.AudioSourceCount = count;
+                for (int i = Settings.MaxAudioSource; i < count; i++) CreateAudioSource();
+                Settings.MaxAudioSource = count;
                 return;
             }
 
             var removeSources = _sourcesData
                 .OrderBy(a => !a.Source.isPlaying)
                 .ThenByDescending(a => a.Source.priority)
-                .Take(Settings.AudioSourceCount - count);
+                .Take(Settings.MaxAudioSource - count);
 
             foreach (var removeSource in removeSources)
             {
-                removeSource.Completed?.Invoke(removeSource.Source);
-                removeSource.Completed = null;
+                removeSource.Ended?.Invoke(removeSource.Source);
+                removeSource.Ended = null;
             }
             _sourcesData.RemoveAll(a => removeSources.Any(r => r == a));
-            Settings.AudioSourceCount = count;
+            Settings.MaxAudioSource = count;
         }
     }
 
     public static class SEManagerEx
     {
-        public static AudioSource Play(this AudioClip clip, int priority = 0, Action<AudioSource> completed = null, float delay = 0f)
+        public static AudioSource Play(this AudioClip clip, int priority = 0, Action<AudioSource> ended = null, float delay = 0f)
         {
-            var audioSource = SEManager.TryGetAudioSoure(priority, null, null, completed);
+            var audioSource = SEManager.TryGetAudioSoure(priority, null, ended);
             audioSource.clip = clip;
             audioSource.PlayDelayed(delay);
             return audioSource;
         }
-        public static AudioSource Play(this AudioClip clip, Vector3 position, int priority = 0, Action<AudioSource> completed = null, float delay = 0f)
+        public static AudioSource Play(this AudioClip clip, Transform transform, int priority = 0, Action<AudioSource> ended = null, float delay = 0f)
         {
-            var audioSource = SEManager.TryGetAudioSoure(priority, null, position, completed);
+            var audioSource = SEManager.TryGetAudioSoure(priority, transform, ended);
             audioSource.clip = clip;
             audioSource.PlayDelayed(delay);
             return audioSource;
         }
-        public static AudioSource Play(this AudioClip clip, Transform transform, int priority = 0, Action<AudioSource> completed = null, float delay = 0f)
+
+        public static AudioSource SetPos(this AudioSource audioSource, Vector3 position, float spatialBlend = 1f)
         {
-            var audioSource = SEManager.TryGetAudioSoure(priority, transform, null, completed);
-            audioSource.clip = clip;
-            audioSource.PlayDelayed(delay);
+            audioSource.transform.position = position;
+            audioSource.spatialBlend = spatialBlend;
             return audioSource;
         }
     }
