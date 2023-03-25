@@ -89,8 +89,6 @@ namespace Yamara
             source.pitch = 1f;
             source.volume = Settings.DefaultVolume;
             source.maxDistance = Settings.DefaultMaxDistance;
-            source.spread = Settings.DefaultSpread;
-            source.dopplerLevel = Settings.DefaultDopplerLevel;
         }
         private static void CleanData(AudioSourceData data)
         {
@@ -163,7 +161,7 @@ namespace Yamara
             _lowestPriority = MaxPriority;
         }
 
-        public static IEnumerable<AudioSource> GetAudioSourcesAll => _sourcesData.Select(d => d.Source);
+        public static IEnumerable<AudioSource> GetAudioSourcesAll() => _sourcesData.Select(d => d.Source);
         public static void Pause(bool audioSources = true, bool oneShots = true)
         {
             if (oneShots) _oneShotsSource.Pause();
