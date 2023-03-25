@@ -102,7 +102,7 @@ namespace Yamara
             _oneShotsSource.PlayOneShot(clip, volumeScale);
         }
 
-        public static AudioSource TryGetAudioSoure(int priority = 0, Transform transform = null, Action<AudioSource> ended = null)
+        public static AudioSource TryGetAudioSource(int priority = 0, Transform transform = null, Action<AudioSource> ended = null)
         {
             if (_sourcesData.Count == 0)
             {
@@ -161,7 +161,7 @@ namespace Yamara
             _lowestPriority = MaxPriority;
         }
 
-        public static IEnumerable<AudioSource> GetAudioSources => _sourcesData.Select(d => d.Source);
+        public static IEnumerable<AudioSource> GetAudioSourcesAll => _sourcesData.Select(d => d.Source);
         public static void Pause(bool audioSources = true, bool oneShots = true)
         {
             if (oneShots) _oneShotsSource.Pause();
@@ -208,14 +208,14 @@ namespace Yamara
     {
         public static AudioSource Play(this AudioClip clip, int priority = 0, Action<AudioSource> ended = null, float delay = 0f)
         {
-            var audioSource = SEManager.TryGetAudioSoure(priority, null, ended);
+            var audioSource = SEManager.TryGetAudioSource(priority, null, ended);
             audioSource.clip = clip;
             audioSource.PlayDelayed(delay);
             return audioSource;
         }
         public static AudioSource Play(this AudioClip clip, Transform transform, int priority = 0, Action<AudioSource> ended = null, float delay = 0f)
         {
-            var audioSource = SEManager.TryGetAudioSoure(priority, transform, ended);
+            var audioSource = SEManager.TryGetAudioSource(priority, transform, ended);
             audioSource.clip = clip;
             audioSource.PlayDelayed(delay);
             return audioSource;
