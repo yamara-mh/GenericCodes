@@ -22,6 +22,7 @@ namespace Yamara
             }
         }
         private static List<AudioSourceData> _sourcesData = new();
+        private static AudioSource _oneShotsSource = null;
 
         public static SEManagerSettings Settings { get; private set; } = null;
         public static bool IsPausing { get; private set; } = false;
@@ -41,17 +42,22 @@ namespace Yamara
             Settings = Resources.Load<SEManagerSettings>(nameof(SEManagerSettings));
             if (Settings == null) Debug.LogError(nameof(SEManagerSettings) + " does not exist in Resources");
 
-            for (int i = 0; i < Settings.MaxAudioSource; i++) CreateAudioSource();
+            for (int i = 0; i < Settings.MaxAudioSource; i++) _sourcesData.Add(new(CreateAudioSource(true)));
+
+            _oneShotsSource = CreateAudioSource(false);
+            _oneShotsSource.priority = 0;
+            _oneShotsSource.reverbZoneMix = 0f;
+            _oneShotsSource.dopplerLevel = 0f;
         }
 
-        private static void CreateAudioSource()
+        private static AudioSource CreateAudioSource(bool crean)
         {
             var audioSource = new GameObject().AddComponent<AudioSource>();
             audioSource.name = nameof(AudioSource);
+            audioSource.playOnAwake = false;
             audioSource.transform.SetParent(Instance.transform);
-            CleanAudioSource(audioSource);
-
-            _sourcesData.Add(new(audioSource));
+            if (crean) CleanAudioSource(audioSource);
+            return audioSource;
         }
 
         private void LateUpdate()
@@ -89,6 +95,11 @@ namespace Yamara
             CleanAudioSource(data.Source);
             data.Ended?.Invoke(data.Source);
             data.Ended = null;
+        }
+
+        public static void PlayOneShot(AudioClip clip, float volumeScale = 1f)
+        {
+            _oneShotsSource.PlayOneShot(clip, volumeScale);
         }
 
         public static AudioSource TryGetAudioSoure(int priority = 0, Transform transform = null, Action<AudioSource> ended = null)
@@ -134,12 +145,13 @@ namespace Yamara
                 data.Source.transform.position = transform.position;
             }
             else data.Source.spatialBlend = 0f;
-
-            if (IsPausing) data.Source.Pause();
         }
 
-        public static void Stop()
+        public static void Stop(bool audioSources = true, bool oneShots = true)
         {
+            if (oneShots) _oneShotsSource.Stop();
+            if (!audioSources) return;
+
             foreach (var item in _sourcesData)
             {
                 item.Source.Stop();
@@ -150,13 +162,19 @@ namespace Yamara
         }
 
         public static IEnumerable<AudioSource> GetAudioSources => _sourcesData.Select(d => d.Source);
-        public static void Pause()
+        public static void Pause(bool audioSources = true, bool oneShots = true)
         {
+            if (oneShots) _oneShotsSource.Pause();
+            if (!audioSources) return;
+
             IsPausing = true;
             foreach (var item in _sourcesData) item.Source.Pause();
         }
-        public static void UnPause()
+        public static void UnPause(bool audioSources = true, bool oneShots = true)
         {
+            if (oneShots) _oneShotsSource.UnPause();
+            if (!audioSources) return;
+
             IsPausing = false;
             foreach (var item in _sourcesData) item.Source.UnPause();
         }
@@ -166,7 +184,7 @@ namespace Yamara
             count = Mathf.Max(0, count);
             if (count >= Settings.MaxAudioSource)
             {
-                for (int i = Settings.MaxAudioSource; i < count; i++) CreateAudioSource();
+                for (int i = Settings.MaxAudioSource; i < count; i++) CreateAudioSource(true);
                 Settings.MaxAudioSource = count;
                 return;
             }
@@ -202,6 +220,7 @@ namespace Yamara
             audioSource.PlayDelayed(delay);
             return audioSource;
         }
+        public static void PlayOneShot(this AudioClip clip, float volumeScale = 1f) => SEManager.PlayOneShot(clip, volumeScale);
 
         public static AudioSource SetPos(this AudioSource audioSource, Vector3 position, float spatialBlend = 1f)
         {
