@@ -42,21 +42,24 @@ namespace Yamara
             Settings = Resources.Load<SEManagerSettings>(nameof(SEManagerSettings));
             if (Settings == null) Debug.LogError(nameof(SEManagerSettings) + " does not exist in Resources");
 
-            for (int i = 0; i < Settings.MaxAudioSource; i++) _sourcesData.Add(new(CreateAudioSource(true)));
+            for (int i = 0; i < Settings.MaxAudioSource; i++) _sourcesData.Add(new(CreateAudioSource()));
 
-            _oneShotsSource = CreateAudioSource(false);
-            _oneShotsSource.priority = 0;
-            _oneShotsSource.reverbZoneMix = 0f;
-            _oneShotsSource.dopplerLevel = 0f;
+            if (Settings.OneShotAudioSourcePrefab)
+            {
+                _oneShotsSource = Instantiate(Settings.OneShotAudioSourcePrefab);
+                _oneShotsSource.priority = 0;
+                _oneShotsSource.reverbZoneMix = 0f;
+                _oneShotsSource.dopplerLevel = 0f;
+            }
+            else _oneShotsSource = new GameObject(nameof(AudioSource)).AddComponent<AudioSource>();
+            _oneShotsSource.transform.parent = Instance.transform;
         }
 
-        private static AudioSource CreateAudioSource(bool crean)
+        private static AudioSource CreateAudioSource()
         {
-            var audioSource = Settings.AudioSourcePrefab ? Instantiate(Settings.AudioSourcePrefab) : new GameObject().AddComponent<AudioSource>();
-            audioSource.name = nameof(AudioSource);
-            audioSource.playOnAwake = false;
-            audioSource.transform.SetParent(Instance.transform);
-            if (crean) CleanAudioSource(audioSource);
+            var audioSource = Settings.AudioSourcePrefab ? Instantiate(Settings.AudioSourcePrefab) : new GameObject(nameof(AudioSource)).AddComponent<AudioSource>();
+            audioSource.transform.parent = Instance.transform;
+            CleanAudioSource(audioSource);
             return audioSource;
         }
 
@@ -84,7 +87,6 @@ namespace Yamara
             source.clip = null;
             source.priority = MaxPriority;
             source.pitch = 1f;
-            source.outputAudioMixerGroup = Settings.DefaultAudioMixerGroup;
             source.volume = Settings.DefaultVolume;
             source.maxDistance = Settings.DefaultMaxDistance;
             source.spread = Settings.DefaultSpread;
@@ -184,7 +186,7 @@ namespace Yamara
             count = Mathf.Max(0, count);
             if (count >= Settings.MaxAudioSource)
             {
-                for (int i = Settings.MaxAudioSource; i < count; i++) CreateAudioSource(true);
+                for (int i = Settings.MaxAudioSource; i < count; i++) CreateAudioSource();
                 Settings.MaxAudioSource = count;
                 return;
             }
