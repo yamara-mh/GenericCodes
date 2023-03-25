@@ -86,8 +86,8 @@ namespace Yamara
         {
             source.clip = null;
             source.priority = MaxPriority;
-            source.pitch = 1f;
             source.volume = Settings.DefaultVolume;
+            source.pitch = Settings.DefaultPitch;
             source.maxDistance = Settings.DefaultMaxDistance;
         }
         private static void CleanData(AudioSourceData data)
