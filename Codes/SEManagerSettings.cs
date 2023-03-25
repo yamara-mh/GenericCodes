@@ -11,7 +11,7 @@ namespace Yamara
         [SerializeField] public int MaxAudioSource = 8;
 
         [SerializeField, Range(0f, 1f)] public float DefaultVolume = 1f;
-
+        [SerializeField, Range(0f, 1f)] public float DefaultPitch = 1f;
         [SerializeField] public float DefaultMaxDistance = 50f;
     }
 }
