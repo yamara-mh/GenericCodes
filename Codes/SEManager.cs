@@ -52,7 +52,7 @@ namespace Yamara
 
         private static AudioSource CreateAudioSource(bool crean)
         {
-            var audioSource = new GameObject().AddComponent<AudioSource>();
+            var audioSource = Settings.AudioSourcePrefab ? Instantiate(Settings.AudioSourcePrefab) : new GameObject().AddComponent<AudioSource>();
             audioSource.name = nameof(AudioSource);
             audioSource.playOnAwake = false;
             audioSource.transform.SetParent(Instance.transform);
