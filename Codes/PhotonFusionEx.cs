@@ -158,32 +158,9 @@ namespace Extensions
             return false;
         }
 
-        private static double lastSnapshotTime = 0d;
-        public static bool TryPushHostMigrationSnapshot(this NetworkRunner runner, double interval = 1d)
-        {
-            if (Time.unscaledTimeAsDouble - lastSnapshotTime >= interval)
-            {
-                lastSnapshotTime = Time.unscaledTimeAsDouble;
-                runner.PushHostMigrationSnapshot();
-                return true;
-            }
-            return false;
-        }
+        public static int GetSeed(this NetworkBehaviour nb)
+             => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
 
-        /// <summary>
-        /// Add a seed to your custom property when using this function.
-        /// </summary>
-        public static int GetSeed(this SimulationBehaviour sb)
-        {
-            var index = 0;
-            foreach (var s in sb.Object.SimulationBehaviours)
-            {
-                if (sb == s) break;
-                index++;
-            }
-            return unchecked((int)sb.Runner.SessionInfo.Properties["seed"] + (int)(sb.Object.Id.Raw * byte.MaxValue) + index);
-        }
-        
         #endregion
     }
 }
