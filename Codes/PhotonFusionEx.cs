@@ -144,6 +144,13 @@ namespace Extensions
             old?.Invoke(changed.Behaviour);
             changed.LoadNew();
         }
+        public static T2 LoadOld<T, T2>(this Changed<T> changed, Func<T, T2> old) where T : NetworkBehaviour
+        {
+            changed.LoadOld();
+            var v = old.Invoke(changed.Behaviour);
+            changed.LoadNew();
+            return v;
+        }
 
         public static bool TryAssignInputAuthority(this NetworkObject obj, NetworkRunner runner, Guid token, bool noAssignment = true)
         {
