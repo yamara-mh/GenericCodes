@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UniRx;
 using UnityEngine;
-using static UnityEngine.Rendering.DebugUI;
-using Random = UnityEngine.Random;
 
 namespace Extensions
 {
@@ -72,6 +70,10 @@ namespace Extensions
         public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value)
         {
             for (int i = 0; i < array.Length; i++) if (conditions.Invoke(array.Get(i))) array.Set(i, value);
+        }
+        public static void ReplaceAll<T>(this NetworkArray<T> array, T value)
+        {
+            for (int i = 0; i < array.Length; i++) array.Set(i, value);
         }
         public static int ReplaceOne<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value)
         {
