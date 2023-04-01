@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UniRx;
 using UnityEngine;
+using static UnityEngine.Rendering.DebugUI;
 using Random = UnityEngine.Random;
 
 namespace Extensions
@@ -68,12 +69,15 @@ namespace Extensions
         #endregion
 
         #region Network Array, LinkedList, Dictionary
-
-        public static int SetToEmpty<T>(this NetworkArray<T> array, Func<T, bool> emptyConditions, T value)
+        public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value)
+        {
+            for (int i = 0; i < array.Length; i++) if (conditions.Invoke(array.Get(i))) array.Set(i, value);
+        }
+        public static int ReplaceOne<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value)
         {
             for (int i = 0; i < array.Length; i++)
             {
-                if (emptyConditions.Invoke(array.Get(i)))
+                if (conditions.Invoke(array.Get(i)))
                 {
                     array.Set(i, value);
                     return i;
@@ -81,12 +85,12 @@ namespace Extensions
             }
             return -1;
         }
-        public static bool SetsEmpty<T>(this NetworkArray<T> array, Func<T, bool> emptyConditions, params T[] values)
+        public static bool ReplaceOneByOne<T>(this NetworkArray<T> array, Func<T, bool> conditions, params T[] values)
         {
             var index = 0;
             for (int i = 0; i < array.Length; i++)
             {
-                if (emptyConditions.Invoke(array.Get(i)))
+                if (conditions.Invoke(array.Get(i)))
                 {
                     array.Set(i, values[index++]);
                     if (values.Length == index) return true;
