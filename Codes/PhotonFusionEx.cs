@@ -145,16 +145,15 @@ namespace Extensions
             changed.LoadNew();
         }
 
-        public static bool TryAssignInputAuthority(this NetworkObject obj, NetworkRunner runner, Guid token, bool assignNone = true)
+        public static bool TryAssignInputAuthority(this NetworkObject obj, NetworkRunner runner, Guid token, bool noAssignment = true)
         {
             foreach (var p in runner.ActivePlayers)
             {
-                var t = new Guid(runner.GetPlayerConnectionToken(p));
-                if (t != token) continue;
+                if (new Guid(runner.GetPlayerConnectionToken(p)) != token) continue;
                 obj.AssignInputAuthority(p);
                 return true;
             }
-            if (assignNone) obj.AssignInputAuthority(PlayerRef.None);
+            if (noAssignment) obj.AssignInputAuthority(PlayerRef.None);
             return false;
         }
 
