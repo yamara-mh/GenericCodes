@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UniRx;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Extensions
 {
@@ -169,6 +170,20 @@ namespace Extensions
             return false;
         }
 
+        /// <summary>
+        /// Add a seed to your custom property when using this function.
+        /// </summary>
+        public static int GetSeed(this SimulationBehaviour sb)
+        {
+            var index = 0;
+            foreach (var s in sb.Object.SimulationBehaviours)
+            {
+                if (sb == s) break;
+                index++;
+            }
+            return unchecked((int)sb.Runner.SessionInfo.Properties["seed"] + (int)(sb.Object.Id.Raw * byte.MaxValue) + index);
+        }
+        
         #endregion
     }
 }
