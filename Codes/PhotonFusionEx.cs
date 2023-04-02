@@ -21,13 +21,13 @@ namespace Extensions
         public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
         public static bool HasntPass(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
 
+        public static float SyncDeltaTime(this NetworkRunner runner)
+            => runner.IsServer? 0f : runner.SimulationTime - (float) runner.Simulation.StatePrevious.Time;
+
         #endregion
 
         #region TickTimer
 
-        /// <summary>
-        /// TickTimer が完了した時に実行
-        /// </summary>
         public static IObservable<Unit> OnCompleted(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Select(_ => tickTimer.Expired(runner))
@@ -36,16 +36,10 @@ namespace Extensions
                 .Select(_ => Unit.Default)
                 .Publish().RefCount();
 
-        /// <summary>
-        /// TickTimer が有効の間、常に実行
-        /// </summary>
         public static IObservable<Unit> OnUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate().Where(_ => !tickTimer.Expired(runner)).Select(_ => Unit.Default)
                 .Publish().RefCount();
 
-        /// <summary>
-        /// TickTimer の RemainingTime が更新された時に実行
-        /// </summary>
         public static IObservable<float> OnRunnerUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
@@ -53,9 +47,6 @@ namespace Extensions
                 .DistinctUntilChanged()
                 .Publish().RefCount();
 
-        /// <summary>
-        /// TickTimer の RemainingTime の整数部分が更新された時に実行
-        /// </summary>
         public static IObservable<int> OnCountDowned(this TickTimer tickTimer, NetworkRunner runner, int minCount = 1, int maxCount = int.MaxValue)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
