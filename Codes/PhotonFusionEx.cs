@@ -21,9 +21,6 @@ namespace Extensions
         public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
         public static bool HasntPass(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
 
-        public static float SyncDeltaTime(this NetworkRunner runner)
-            => runner.IsServer? 0f : runner.SimulationTime - (float) runner.Simulation.StatePrevious.Time;
-
         #endregion
 
         #region TickTimer
