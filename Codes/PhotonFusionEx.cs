@@ -135,7 +135,7 @@ namespace Extensions
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner)
             => playerRef == runner.Simulation.MaxConnections;
         
-        public static bool HasntInputAutority(this NetworkObject no)
+        public static bool NoOneHasInputAuthority(this NetworkObject no)
             => !no.Runner.ActivePlayers.Contains(no.InputAuthority);
 
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
