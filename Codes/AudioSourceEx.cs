@@ -26,6 +26,16 @@ namespace Extensions
         public static AudioSource Play(this AudioSource audioSource, AudioClip[] clips, float volume, float volumeRange, float pitch, float pitchRange, float delay = 0f)
             => audioSource.SetClip(clips).SetVolume(volume, volumeRange).SetPitch(pitch, pitchRange).Play(delay);
 
+        public static AudioSource SetTime(this AudioSource audioSource, float second)
+        {
+            audioSource.time = second;
+            return audioSource;
+        }
+        public static AudioSource Skip(this AudioSource audioSource, float second)
+        {
+            audioSource.time += second;
+            return audioSource;
+        }
 
         public static AudioSource SetClip(this AudioSource audioSource, AudioClip clip)
         {
@@ -96,6 +106,16 @@ namespace Extensions
             audioSource.spread = spread;
             return audioSource;
         }
+        public static AudioSource SetPlayOnAwake(this AudioSource audioSource, bool flag)
+        {
+            audioSource.playOnAwake = flag;
+            return audioSource;
+        }
+        public static AudioSource SetLoop(this AudioSource audioSource, bool flag)
+        {
+            audioSource.loop = flag;
+            return audioSource;
+        }
 
         public static AudioSource SetBypassSettings(this AudioSource audioSource, bool bypassEffects, bool bypassListenerEffects, bool bypassReverbZones)
         {
@@ -105,8 +125,9 @@ namespace Extensions
             return audioSource;
         }
 
+
         /*// Infrequently used functions
-        
+
         public static AudioSource SetBypassEffects(this AudioSource audioSource, bool flag)
         {
             audioSource.bypassEffects = flag;
@@ -127,14 +148,15 @@ namespace Extensions
             audioSource.mute = flag;
             return audioSource;
         }
-        public static AudioSource SetPlayOnAwake(this AudioSource audioSource, bool flag)
+
+        public static AudioSource SetTimeSamples(this AudioSource audioSource, int timeSamples)
         {
-            audioSource.playOnAwake = flag;
+            audioSource.timeSamples = timeSamples;
             return audioSource;
         }
-        public static AudioSource SetLoop(this AudioSource audioSource, bool flag)
+        public static AudioSource AddTimeSamples(this AudioSource audioSource, int timeSamples)
         {
-            audioSource.loop = flag;
+            audioSource.timeSamples += timeSamples;
             return audioSource;
         }
         
@@ -170,6 +192,12 @@ namespace Extensions
         public static AudioSource SetVelocityUpdateMode(this AudioSource audioSource, AudioVelocityUpdateMode mode)
         {
             audioSource.velocityUpdateMode = mode;
+            return audioSource;
+        }
+        
+        public static AudioSource SetRolloffMode(this AudioSource audioSource, AudioRolloffMode mode)
+        {
+            audioSource.rolloffMode = mode;
             return audioSource;
         }
         // */
