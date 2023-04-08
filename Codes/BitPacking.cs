@@ -216,12 +216,12 @@ namespace Network
     }
     public static class BitPackingJoyStick
     {
-        public static short JoyStickPackingToShort(this Vector2 axis)
-            => (short)((ushort)((axis.x + 1f) * 127f) << 8 | (ushort)((axis.y + 1f) * 127f));
-        public static Vector2 ExpandToJoyStick(this short value)
+        const float Unit = 0.00787401575f;
+        public static ushort JoyStickPackingToUshort(this Vector2 axis)
+            => (ushort)((int)((axis.x + 1f) * 127.5f) << 8 | (int)((axis.y + 1f) * 127.5f));
+        public static Vector2 ExpandToJoyStick(this ushort v)
         {
-            ushort v = (ushort)value;
-            var axis = new Vector2((v >> 8) * Unit - 1f, (v & 0x00FF) * Unit - 1f);
+            var axis = new Vector2(((v >> 8) - 127) * Unit, ((v & 0x00FF) - 127) * Unit);
             return axis.sqrMagnitude <= 1f ? axis : axis.normalized;
         }
     }
