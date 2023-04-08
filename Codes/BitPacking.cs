@@ -221,6 +221,7 @@ namespace Network
             => (ushort)((int)((axis.x + 1f) * 127.5f) << 8 | (int)((axis.y + 1f) * 127.5f));
         public static Vector2 ExpandToJoyStick(this ushort v)
         {
+            if (v == 0) return Vector2.zero;
             var axis = new Vector2(((v >> 8) - 127) * Unit, ((v & 0x00FF) - 127) * Unit);
             return axis.sqrMagnitude <= 1f ? axis : axis.normalized;
         }
