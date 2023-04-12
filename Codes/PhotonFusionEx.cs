@@ -25,6 +25,9 @@ namespace Extensions
 
         #region TickTimer
 
+        /// <summary>
+        /// TickTimer が完了した時に実行
+        /// </summary>
         public static IObservable<Unit> OnCompleted(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Select(_ => tickTimer.Expired(runner))
@@ -33,10 +36,16 @@ namespace Extensions
                 .Select(_ => Unit.Default)
                 .Publish().RefCount();
 
+        /// <summary>
+        /// TickTimer が有効の間、常に実行
+        /// </summary>
         public static IObservable<Unit> OnUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate().Where(_ => !tickTimer.Expired(runner)).Select(_ => Unit.Default)
                 .Publish().RefCount();
 
+        /// <summary>
+        /// TickTimer の RemainingTime が更新された時に実行
+        /// </summary>
         public static IObservable<float> OnRunnerUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
@@ -44,6 +53,9 @@ namespace Extensions
                 .DistinctUntilChanged()
                 .Publish().RefCount();
 
+        /// <summary>
+        /// TickTimer の RemainingTime の整数部分が更新された時に実行
+        /// </summary>
         public static IObservable<int> OnCountDowned(this TickTimer tickTimer, NetworkRunner runner, int minCount = 1, int maxCount = int.MaxValue)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
@@ -55,26 +67,24 @@ namespace Extensions
         #endregion
 
         #region Network Array, LinkedList, Dictionary
-        public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value)
+        public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, Func<T, T> value)
         {
-            for (int i = 0; i < array.Length; i++) if (conditions.Invoke(array.Get(i))) array.Set(i, value);
+            for (int i = 0; i < array.Length; i++) if (conditions.Invoke(array.Get(i))) array.Set(i, value.Invoke(array.Get(i)));
         }
-        public static void ReplaceAll<T>(this NetworkArray<T> array, T value)
-        {
-            for (int i = 0; i < array.Length; i++) array.Set(i, value);
-        }
-        public static int ReplaceOne<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value)
+        public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value) => Replace(array, conditions, v => value);
+        public static int ReplaceOne<T>(this NetworkArray<T> array, Func<T, bool> conditions, Func<T, T> value)
         {
             for (int i = 0; i < array.Length; i++)
             {
                 if (conditions.Invoke(array.Get(i)))
                 {
-                    array.Set(i, value);
+                    array.Set(i, value.Invoke(array.Get(i)));
                     return i;
                 }
             }
             return -1;
         }
+        public static int ReplaceOne<T>(this NetworkArray<T> array, Func<T, bool> conditions, T value) => ReplaceOne(array, conditions, v => value);
         public static bool ReplaceOneByOne<T>(this NetworkArray<T> array, Func<T, bool> conditions, params T[] values)
         {
             var index = 0;
@@ -88,12 +98,13 @@ namespace Extensions
             }
             return false;
         }
+        public static void ReplaceAll<T>(this NetworkArray<T> array, Func<T, T> value)
+        {
+            for (int i = 0; i < array.Length; i++) array.Set(i, value.Invoke(array.Get(i)));
+        }
+        public static void ReplaceAll<T>(this NetworkArray<T> array, T value) => ReplaceAll(array, v => value);
 
-        public static void ValueChanged<Class, T>(
-            this NetworkArray<T> currentArray,
-            Changed<Class> changed,
-            Func<Class, NetworkArray<T>> loadArray,
-            Action<int, T, T> action)
+        public static void OnValueChanged<Class, T>(this NetworkArray<T> currentArray, Changed<Class> changed, Func<Class, NetworkArray<T>> loadArray, Action<int, T, T> action)
             where Class : NetworkBehaviour
             where T : IEquatable<T>
         {
@@ -108,7 +119,9 @@ namespace Extensions
 
         public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array)
             => netArray.CopyFrom(array, 0, array.Length - 1);
+        #endregion
 
+        #region Network LinkedList, Dictionary
         public static void CopyFrom<T>(this NetworkLinkedList<T> netList, List<T> list)
         {
             if (list.Count == netList.Count)
@@ -127,17 +140,9 @@ namespace Extensions
             netDict.Clear();
             for (int i = 0; i < pairs.Length; i++) netDict.Add(pairs[i].Key, pairs[i].Value);
         }
-
         #endregion
 
         #region Other
-            
-        public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner)
-            => playerRef == runner.Simulation.MaxConnections;
-        
-        public static bool SomeOneHasInputAuthority(this NetworkObject no) => no.Runner.ActivePlayers.Contains(no.InputAuthority);
-        public static bool NoOneHasInputAuthority(this NetworkObject no) => !no.SomeOneHasInputAuthority();
-
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
         {
             changed.LoadOld();
