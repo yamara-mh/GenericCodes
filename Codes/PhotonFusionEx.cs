@@ -143,6 +143,9 @@ namespace Extensions
         #endregion
 
         #region Other
+        public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner)
+            => playerRef == runner.Simulation.MaxConnections;
+        
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
         {
             changed.LoadOld();
