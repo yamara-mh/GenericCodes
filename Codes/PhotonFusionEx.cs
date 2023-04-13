@@ -25,9 +25,6 @@ namespace Extensions
 
         #region TickTimer
 
-        /// <summary>
-        /// TickTimer が完了した時に実行
-        /// </summary>
         public static IObservable<Unit> OnCompleted(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Select(_ => tickTimer.Expired(runner))
@@ -36,16 +33,10 @@ namespace Extensions
                 .Select(_ => Unit.Default)
                 .Publish().RefCount();
 
-        /// <summary>
-        /// TickTimer が有効の間、常に実行
-        /// </summary>
         public static IObservable<Unit> OnUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate().Where(_ => !tickTimer.Expired(runner)).Select(_ => Unit.Default)
                 .Publish().RefCount();
 
-        /// <summary>
-        /// TickTimer の RemainingTime が更新された時に実行
-        /// </summary>
         public static IObservable<float> OnRunnerUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
@@ -53,9 +44,6 @@ namespace Extensions
                 .DistinctUntilChanged()
                 .Publish().RefCount();
 
-        /// <summary>
-        /// TickTimer の RemainingTime の整数部分が更新された時に実行
-        /// </summary>
         public static IObservable<int> OnCountDowned(this TickTimer tickTimer, NetworkRunner runner, int minCount = 1, int maxCount = int.MaxValue)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
@@ -67,6 +55,7 @@ namespace Extensions
         #endregion
 
         #region Network Array, LinkedList, Dictionary
+        
         public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, Func<T, T> value)
         {
             for (int i = 0; i < array.Length; i++) if (conditions.Invoke(array.Get(i))) array.Set(i, value.Invoke(array.Get(i)));
@@ -117,11 +106,12 @@ namespace Extensions
             }
         }
 
-        public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array)
-            => netArray.CopyFrom(array, 0, array.Length - 1);
+        public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array)　=> netArray.CopyFrom(array, 0, array.Length - 1);
+        
         #endregion
 
         #region Network LinkedList, Dictionary
+        
         public static void CopyFrom<T>(this NetworkLinkedList<T> netList, List<T> list)
         {
             if (list.Count == netList.Count)
@@ -140,11 +130,15 @@ namespace Extensions
             netDict.Clear();
             for (int i = 0; i < pairs.Length; i++) netDict.Add(pairs[i].Key, pairs[i].Value);
         }
+        
         #endregion
 
         #region Other
+        
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.Simulation.MaxConnections;
         public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
+        
+        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
         
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
         {
@@ -171,9 +165,6 @@ namespace Extensions
             if (noAssignment) obj.AssignInputAuthority(PlayerRef.None);
             return false;
         }
-
-        public static int GetSeed(this NetworkBehaviour nb)
-             => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
 
         #endregion
     }
