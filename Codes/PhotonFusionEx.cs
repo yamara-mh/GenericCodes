@@ -13,6 +13,8 @@ namespace Extensions
 
         public static int ToTick(this int second, NetworkRunner runner) => (int)(second / runner.DeltaTime);
         public static int ToTick(this float second, NetworkRunner runner) => (int)(second / runner.DeltaTime);
+        public static float ToSecond(this int tick, NetworkRunner runner) => tick * runner.DeltaTime;
+        
         public static int GetTickAfter(this NetworkRunner runner, float second) => runner.Tick + (int)(second / runner.DeltaTime);
 
         public static float ElapsedTime(this NetworkRunner runner, int tick) => (runner.Tick - tick) * runner.DeltaTime;
