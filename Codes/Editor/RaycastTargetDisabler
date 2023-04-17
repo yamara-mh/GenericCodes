@@ -1,0 +1,135 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using Graphic = UnityEngine.UI.Graphic;
+
+public static class RaycastTargetDisabler
+{
+    [MenuItem("GameObject/Disable RaycastTarget", false)]
+    public static void DisableRaycastTarget()
+    {
+        List<Graphic> graphics;
+
+        if (Selection.objects.Length > 0)
+        {
+            graphics = new List<Graphic>();
+            foreach (var item in Selection.objects)
+            {
+                if (item is GameObject gameObject) graphics.AddRange(GetGraphics(gameObject));
+            }
+            Log(Selection.objects.Length, graphics.Count);
+        }
+        else
+        {
+            graphics = new List<Graphic>();
+            for (var i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var sceneGraphics = new List<Graphic>();
+                foreach (var rootGameObject in SceneManager.GetSceneAt(i).GetRootGameObjects())
+                {
+                    sceneGraphics = GetGraphics(rootGameObject);
+                    graphics.AddRange(sceneGraphics);
+                }
+                graphics.AddRange(sceneGraphics);
+                Log(SceneManager.GetSceneAt(i).name, sceneGraphics.Count);
+            }
+        }
+
+        if (graphics != null && graphics.Count > 0)
+        {
+            Undo.RecordObjects(graphics.ToArray(), "Disable RaycastTarget");
+            foreach (var graphic in graphics) graphic.raycastTarget = false;
+        }
+    }
+
+    [MenuItem("Assets/Disable RaycastTarget")]
+    private static void FindPrefab()
+    {
+        int objectCount = 0, graphicsCount = 0;
+        foreach (var obj in Selection.objects)
+        {
+            (objectCount, graphicsCount) = FindPrefab(objectCount, graphicsCount, obj);
+        }
+        Log(objectCount, graphicsCount);
+    }
+    private static (int, int) FindPrefab(int objectCount, int graphicsCount, Object obj)
+    {
+        if (obj is GameObject)
+        {
+            var graphics = DisableRaycastTarget(obj);
+            if (graphics != null) return (++objectCount, graphicsCount + graphics.Count);
+        }
+        var path = AssetDatabase.GetAssetPath(obj);
+        if (string.IsNullOrEmpty(path) || !File.GetAttributes(path).HasFlag(FileAttributes.Directory))
+        {
+            return (objectCount, graphicsCount);
+        }
+
+        foreach (var childPath in AssetDatabase.FindAssets("t:prefab", new[] { path }).Select(AssetDatabase.GUIDToAssetPath))
+        {
+            (objectCount, graphicsCount) = FindPrefab(objectCount, graphicsCount, AssetDatabase.LoadAssetAtPath<Object>(childPath));
+        }
+        return (objectCount, graphicsCount);
+    }
+
+    private static List<Graphic> DisableRaycastTarget(Object obj)
+    {
+        var prefabPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(obj);
+        var gameObject = PrefabUtility.LoadPrefabContents(prefabPath);
+        var graphics = GetGraphics(gameObject);
+        foreach (var graphic in graphics) graphic.raycastTarget = false;
+
+        PrefabUtility.SaveAsPrefabAsset(gameObject, prefabPath);
+        PrefabUtility.UnloadPrefabContents(gameObject);
+        return graphics;
+    }
+
+    private static List<Graphic> GetGraphics(GameObject gameObject)
+    {
+        var graphicDict = new Dictionary<RectTransform, Graphic>();
+        var ignoreRects = new HashSet<RectTransform>();
+
+        foreach (var transform in gameObject.GetComponentsInChildren<Transform>(true))
+        {
+            foreach (var component in transform.GetComponents<MonoBehaviour>())
+            {
+                if (component is Graphic graphic)
+                {
+                    if (!graphicDict.TryGetValue(graphic.rectTransform, out _) && graphic.raycastTarget)
+                    {
+                        graphicDict.Add(graphic.rectTransform, graphic);
+                    }
+                }
+                if (component is Selectable selectable && selectable.targetGraphic)
+                {
+                    ignoreRects.Add(selectable.targetGraphic.rectTransform);
+                }
+                if (component is ScrollRect)
+                {
+                    ignoreRects.Add(component.transform as RectTransform);
+                }
+                if (component is Scrollbar scrollbar)
+                {
+                    ignoreRects.Add(component.transform as RectTransform);
+                    ignoreRects.Add(scrollbar.handleRect);
+                }
+                else if (component is Slider slider)
+                {
+                    ignoreRects.Add(slider.fillRect);
+                    ignoreRects.Add(slider.handleRect);
+                }
+            } 
+        }
+        foreach (var ignoreRect in ignoreRects) graphicDict.Remove(ignoreRect);
+        return graphicDict.Select(p => p.Value).Where(g => g.raycastTarget).ToList();
+    }
+
+    private static void Log(int objectCount, int disableCount)
+        => Debug.Log($"{nameof(RaycastTargetDisabler)} was disabled {disableCount} raycastTargets from {objectCount} gameObjects");
+    private static void Log(string name, int disableCount)
+        => Debug.Log($"{nameof(RaycastTargetDisabler)} was disabled {disableCount} raycastTargets from {name}");
+}
