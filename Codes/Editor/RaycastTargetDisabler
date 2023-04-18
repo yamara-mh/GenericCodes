@@ -3,13 +3,14 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Graphic = UnityEngine.UI.Graphic;
 
 public static class RaycastTargetDisabler
 {
-    [MenuItem("GameObject/Disable RaycastTarget", false)]
+    [MenuItem("GameObject/Disable RaycastTarget")]
     public static void DisableRaycastTarget()
     {
         List<Graphic> graphics;
@@ -104,7 +105,11 @@ public static class RaycastTargetDisabler
                         graphicDict.Add(graphic.rectTransform, graphic);
                     }
                 }
-                if (component is Selectable selectable && selectable.targetGraphic)
+                if (component is EventTrigger)
+                {
+                    ignoreRects.Add(component.transform as RectTransform);
+                }
+                if (component is Selectable selectable)
                 {
                     ignoreRects.Add(selectable.targetGraphic.rectTransform);
                 }
@@ -122,9 +127,9 @@ public static class RaycastTargetDisabler
                     ignoreRects.Add(slider.fillRect);
                     ignoreRects.Add(slider.handleRect);
                 }
-            } 
+            }
         }
-        foreach (var ignoreRect in ignoreRects) graphicDict.Remove(ignoreRect);
+        foreach (var ignoreRect in ignoreRects.Where(i => i)) graphicDict.Remove(ignoreRect);
         return graphicDict.Select(p => p.Value).Where(g => g.raycastTarget).ToList();
     }
 
