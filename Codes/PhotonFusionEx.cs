@@ -139,7 +139,7 @@ namespace Extensions
         
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.Simulation.MaxConnections;
         public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
-        public static PlayerRef Host(this NetworkRunner runner) => runner.Simulation.MaxConnections;
+        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.MaxConnections;
         public static bool IsPlayer(this NetworkRunner runner) => runner.GameMode != GameMode.Server;
         
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
