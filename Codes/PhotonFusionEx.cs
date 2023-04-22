@@ -14,7 +14,7 @@ namespace Extensions
         public static int ToTick(this int second, NetworkRunner runner) => (int)(second / runner.DeltaTime);
         public static int ToTick(this float second, NetworkRunner runner) => (int)(second / runner.DeltaTime);
         public static float ToSecond(this int tick, NetworkRunner runner) => tick * runner.DeltaTime;
-        
+
         public static int GetTickAfter(this NetworkRunner runner, float second) => runner.Tick + (int)(second / runner.DeltaTime);
 
         public static float ElapsedTime(this NetworkRunner runner, int tick) => (runner.Tick - tick) * runner.DeltaTime;
@@ -57,7 +57,7 @@ namespace Extensions
         #endregion
 
         #region Network Array, LinkedList, Dictionary
-        
+
         public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, Func<T, T> value)
         {
             for (int i = 0; i < array.Length; i++) if (conditions.Invoke(array.Get(i))) array.Set(i, value.Invoke(array.Get(i)));
@@ -108,12 +108,12 @@ namespace Extensions
             }
         }
 
-        public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array)　=> netArray.CopyFrom(array, 0, array.Length - 1);
-        
+        public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array) => netArray.CopyFrom(array, 0, array.Length - 1);
+
         #endregion
 
         #region Network LinkedList, Dictionary
-        
+
         public static void CopyFrom<T>(this NetworkLinkedList<T> netList, List<T> list)
         {
             if (list.Count == netList.Count)
@@ -132,18 +132,18 @@ namespace Extensions
             netDict.Clear();
             for (int i = 0; i < pairs.Length; i++) netDict.Add(pairs[i].Key, pairs[i].Value);
         }
-        
+
         #endregion
 
         #region Other
-        
+
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.Simulation.MaxConnections;
         public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
         public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.MaxConnections;
-        public static bool IsPlayer(this NetworkRunner runner) => runner.GameMode != GameMode.Server;
-        
+        public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
+
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
-        
+
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
         {
             changed.LoadOld();
