@@ -136,18 +136,19 @@ namespace Extensions
         #endregion
 
         #region Other
-
+        
+        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.MaxConnections;
+        public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
+        
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.Simulation.MaxConnections;
-        public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
+        public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;   
         public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.InputAuthority;
         public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.StateAuthority;
         public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.InputAuthority;
         public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.StateAuthority;
-        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.MaxConnections;
-        public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
-
+        
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
-
+        
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
         {
             changed.LoadOld();
@@ -175,5 +176,10 @@ namespace Extensions
         }
 
         #endregion
+    }
+
+    public static class PhotonFusionUtil
+    {
+        public static NetworkRunner Runner => NetworkRunner.Instances.FirstOrDefault();
     }
 }
