@@ -7,11 +7,11 @@ namespace UniRx.Triggers
 {
     public static class NetworkRunnerTriggerExtensions
     {
-        public static NetworkRunnerEventTrigger GetOrAddComponent(NetworkRunner runner)
+        public static NetworkRunnerCallbacksTrigger GetOrAddComponent(NetworkRunner runner)
         {
-            NetworkRunnerEventTrigger eventTrigger;
+            NetworkRunnerCallbacksTrigger eventTrigger;
             if (runner.TryGetComponent(out eventTrigger)) return eventTrigger;
-            eventTrigger = runner.gameObject.AddComponent<NetworkRunnerEventTrigger>();
+            eventTrigger = runner.gameObject.AddComponent<NetworkRunnerCallbacksTrigger>();
             runner.AddCallbacks(eventTrigger);
             return eventTrigger;
         }
