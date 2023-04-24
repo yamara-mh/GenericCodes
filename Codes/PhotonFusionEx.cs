@@ -139,7 +139,7 @@ namespace Extensions
         
         public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.MaxConnections;
         public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
-        public static float MaxPredictionSecond(this NetworkRunner runner) => runner.Config.Simulation.MaxPrediction * runner.DeltaTime;
+        public static float MaxPredictionTime(this NetworkRunner runner) => runner.Config.Simulation.MaxPrediction * runner.DeltaTime;
         
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.Simulation.MaxConnections;
         public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;   
