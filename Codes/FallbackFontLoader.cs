@@ -11,7 +11,7 @@ using UnityEngine.Events;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 
-namespace Yamara.FontLoader
+namespace Yamara.TMPro
 {
     public class FallbackFontLoader : MonoBehaviour
     {
