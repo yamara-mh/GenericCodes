@@ -25,7 +25,7 @@ namespace Yamara.TMPro
         [SerializeField] public AssetReferenceT<TMP_FontAsset> BaseRef;
         [SerializeField] public AssetReferenceT<TMP_FontAsset> DynamicRef;
         [SerializeField, Header("Set the font for the corresponding language.\nPlease add Locale Code to the end of Address.\nEnglish font address example : FontName en")]
-        public AssetReferenceT<TMP_FontAsset>[] LocalizationRefs;
+        public AssetReferenceT<TMP_FontAsset>[] LanguageRefs;
 
         public static bool IsLoadedDefaultFonts { get; private set; }
 
@@ -64,13 +64,13 @@ namespace Yamara.TMPro
             if (cancellationToken.IsCancellationRequested) return _font;
             _font.fallbackFontAssetTable.Clear();
 
-            foreach (var localizationRef in LocalizationRefs)
+            foreach (var languageRef in LanguageRefs)
             {
-                var location = (await Addressables.LoadResourceLocationsAsync(localizationRef.RuntimeKey)).FirstOrDefault();
+                var location = (await Addressables.LoadResourceLocationsAsync(languageRef.RuntimeKey)).FirstOrDefault();
                 if (cancellationToken.IsCancellationRequested) return _font;
                 if (location == null || !location.PrimaryKey.EndsWith(locale.Identifier.Code)) continue;
 
-                var font = await Addressables.LoadAssetAsync<TMP_FontAsset>(localizationRef.RuntimeKey);
+                var font = await Addressables.LoadAssetAsync<TMP_FontAsset>(languageRef.RuntimeKey);
                 if (cancellationToken.IsCancellationRequested) return _font;
                 _font.fallbackFontAssetTable.Add(font);
                 break;
@@ -182,9 +182,9 @@ namespace Yamara.TMPro
                 AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(settings.BaseRef.AssetGUID).AssetPath);
             baseFont.fallbackFontAssetTable.Clear();
 
-            foreach (var localizationRef in settings.LocalizationRefs)
+            foreach (var languageRefs in settings.LanguageRefs)
             {
-                var entry = AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(localizationRef.AssetGUID);
+                var entry = AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(languageRefs.AssetGUID);
                 if (!entry.address.EndsWith(LocalizationSettings.ProjectLocale.Identifier.Code)) continue;
                 var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(entry.AssetPath);
                 baseFont.fallbackFontAssetTable.Add(font);
