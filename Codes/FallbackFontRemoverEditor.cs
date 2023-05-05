@@ -28,7 +28,7 @@ namespace Yamara.FontLoader
 
         private static void RemoveFallbackFonts(bool build)
         {
-            var storage = new FallbackData();
+            var storage = new FallbackFontTempStorage();
             var releaseList = new List<TMP_FontAsset>();
             var removeFallbackList = new List<TMP_FontAsset>();
             var log = new StringBuilder();
@@ -77,7 +77,7 @@ namespace Yamara.FontLoader
         }
         private static void AddFallbackFonts()
         {
-            var storage = JsonUtility.FromJson<FallbackData>(File.ReadAllText(SavePath));
+            var storage = JsonUtility.FromJson<FallbackFontTempStorage>(File.ReadAllText(SavePath));
             for (int i = 0; i < storage.Paths.Count; i++)
             {
                 var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(storage.Paths[i]);
@@ -90,7 +90,7 @@ namespace Yamara.FontLoader
     }
 
     [Serializable]
-    class FallbackData
+    class FallbackFontTempStorage
     {
         public List<string> Paths = new List<string>();
         public List<int> FallBacksCounts = new List<int>();
