@@ -8,14 +8,13 @@ using UnityEngine.Localization;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.Localization.Settings;
 using System.Collections.Generic;
-using System;
 using UniRx;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 #endif
 
-namespace Yamara.FontLoader
+namespace Yamara.TMPro
 {
     [CreateAssetMenu(fileName = nameof(FallbackFontData), menuName = nameof(ScriptableObject) + "/Create " + nameof(FallbackFontData))]
     public class FallbackFontData : ScriptableObject
@@ -31,7 +30,7 @@ namespace Yamara.FontLoader
         public static bool IsLoadedDefaultFonts { get; private set; }
 
         public bool IsLoaded { get; private set; }
-        
+
         private TMP_FontAsset _font;
         private TMP_FontAsset _dynamicFont;
 
