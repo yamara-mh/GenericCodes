@@ -13,7 +13,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-namespace Yamara.FontLoader
+namespace Yamara.TMPro
 {
     public class FallbackFontRemoverEditor : IPreprocessBuildWithReport, IPostprocessBuildWithReport
     {
