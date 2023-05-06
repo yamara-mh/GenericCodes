@@ -1,138 +1,199 @@
-using Cysharp.Threading.Tasks;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using TMPro;
-using UniRx;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.Events;
+using System.Linq;
+using Cysharp.Threading.Tasks;
+using System.Threading;
 using UnityEngine.Localization;
+using UnityEngine.TextCore.LowLevel;
 using UnityEngine.Localization.Settings;
+using System.Collections.Generic;
+using UniRx;
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.AddressableAssets;
+#endif
 
 namespace Yamara.TMPro
 {
-    public class FallbackFontLoader : MonoBehaviour
+    [CreateAssetMenu(fileName = nameof(FallbackFontLoader), menuName = nameof(ScriptableObject) + "/Create " + nameof(FallbackFontLoader))]
+    public class FallbackFontLoader : ScriptableObject
     {
-        public enum LinkType
-        {
-            Manual = 0,
-            Instance = 1,
-            Active = 2,
-        }
-        [SerializeField] private LinkType _linkType = LinkType.Instance;
-        [SerializeField] private bool _updateAllTextOnLoad = true;
-        [SerializeField] private List<AssetReferenceT<FallbackFontData>> _fontSettingsRefs;
-        [SerializeField] public UnityEvent<IEnumerable<TMP_FontAsset>> OnLoadedEvent;
-        [SerializeField] public UnityEvent OnUnloadedEvent;
+        public const string LabelName = nameof(FallbackFontLoader);
+
+        [SerializeField] public bool LoadOnStartup = true;
+        [SerializeField] public AssetReferenceT<TMP_FontAsset> BaseRef;
+        [SerializeField] public AssetReferenceT<TMP_FontAsset> DynamicRef;
+        [SerializeField, Header("Set the font for the corresponding language.\nPlease add Locale Code to the end of Address.\nEnglish font address example : FontName en")]
+        public AssetReferenceT<TMP_FontAsset>[] LanguageRefs;
+
+        public static bool IsLoadedDefaultFonts { get; private set; }
 
         public bool IsLoaded { get; private set; }
 
-        private readonly Subject<IEnumerable<TMP_FontAsset>> onLoadedSubject = new Subject<IEnumerable<TMP_FontAsset>>();
-        public IObservable<IEnumerable<TMP_FontAsset>> OnLoaded => onLoadedSubject;
+        private TMP_FontAsset _font;
+        private TMP_FontAsset _dynamicFont;
 
-        private readonly Subject<Unit> onUnloadedSubject = new Subject<Unit>();
-        public IObservable<Unit> OnUnloaded => onUnloadedSubject;
-
-        private FallbackFontData[] _settings;
-        private List<TMP_FontAsset> _loadedFonts;
-        private CancellationTokenSource _loadCtSource;
-
-        private void Start()
+        [RuntimeInitializeOnLoadMethod()]
+        static void EnterPlayMode()
         {
-            if (_linkType == LinkType.Instance)
+            LoadDefaultFonts();
+            LocalizationSettings.SelectedLocaleChanged += LoadDefaultFonts;
+        }
+
+        private static async void LoadDefaultFonts(Locale locale = null)
+        {
+            IsLoadedDefaultFonts = false;
+            locale ??= await LocalizationSettings.SelectedLocaleAsync;
+            var updateFonts = new List<TMP_FontAsset>();
+            foreach (var locations in await Addressables.LoadResourceLocationsAsync(LabelName, typeof(FallbackFontLoader)).ToUniTask())
             {
-                _loadCtSource = new CancellationTokenSource();
-                Activate();
+                var loader = await Addressables.LoadAssetAsync<FallbackFontLoader>(locations).ToUniTask();
+                if (!loader.LoadOnStartup) continue;
+                await loader.LoadFontsAsync(locale);
             }
-        }
-        private void OnDestroy()
-        {
-            if (_linkType == LinkType.Instance)
-            {
-                _loadCtSource?.Cancel();
-                Deactivate();
-            }
+            IsLoadedDefaultFonts = true;
+            if (updateFonts.Count > 0) UpdateAllText(updateFonts.ToArray());
         }
 
-        private void OnEnable()
+        public async UniTask<TMP_FontAsset> LoadFontsAsync(Locale locale = null, CancellationToken cancellationToken = default)
         {
-            if (_linkType == LinkType.Active)
-            {
-                _loadCtSource = new CancellationTokenSource();
-                Activate();
-            }
-        }
-        private void OnDisable()
-        {
-            if (_linkType == LinkType.Active)
-            {
-                _loadCtSource?.Cancel();
-                Deactivate();
-            }
-        }
-
-        private async void Activate()
-        {
-            LocalizationSettings.SelectedLocaleChanged += ReloadFonts;
-            await LoadFontsAsync(await LocalizationSettings.SelectedLocaleAsync);
-        }
-        private void Deactivate()
-        {
-            LocalizationSettings.SelectedLocaleChanged -= ReloadFonts;
-            UnloadFonts();
-        }
-
-        public async void LoadFonts() => await LoadFontsAsync(LocalizationSettings.SelectedLocale);
-        public async void LoadFonts(Locale locale) => await LoadFontsAsync(locale);
-        public async UniTask LoadFontsAsync() => await LoadFontsAsync(LocalizationSettings.SelectedLocale);
-        public async UniTask LoadFontsAsync(Locale locale)
-        {
-            _loadCtSource?.Cancel();
-            _loadCtSource = new CancellationTokenSource();
             IsLoaded = false;
-            _loadedFonts ??= new List<TMP_FontAsset>();
-            _loadedFonts.Clear();
+            locale ??= await LocalizationSettings.SelectedLocaleAsync;
+            _font ??= await Addressables.LoadAssetAsync<TMP_FontAsset>(BaseRef.RuntimeKey);
+            if (cancellationToken.IsCancellationRequested) return _font;
+            _font.fallbackFontAssetTable.Clear();
 
-            _settings ??= (await _fontSettingsRefs.Select(async r => await r.LoadAssetAsync())).ToArray();
-            foreach (var setting in _settings)
+            foreach (var languageRef in LanguageRefs)
             {
-                if (setting.LoadOnStartup)
+                var location = (await Addressables.LoadResourceLocationsAsync(languageRef.RuntimeKey)).FirstOrDefault();
+                if (cancellationToken.IsCancellationRequested) return _font;
+                if (location == null || !location.PrimaryKey.EndsWith(locale.Identifier.Code)) continue;
+
+                var font = await Addressables.LoadAssetAsync<TMP_FontAsset>(languageRef.RuntimeKey);
+                if (cancellationToken.IsCancellationRequested) return _font;
+                _font.fallbackFontAssetTable.Add(font);
+                break;
+            }
+
+            if (DynamicRef.RuntimeKeyIsValid())
+            {
+                if (_dynamicFont == null)
                 {
-                    Debug.LogWarning($"Skip loading because {setting.name} is set to load on startup.");
-                    continue;
+                    _dynamicFont = await Addressables.LoadAssetAsync<TMP_FontAsset>(DynamicRef.RuntimeKey);
+                    if (cancellationToken.IsCancellationRequested) return _font;
+#if UNITY_EDITOR
+                    // MEMO : The Editor uses duplication to ensure that the contents of Dynamic fonts do not change
+                    var source = _dynamicFont;
+                    _dynamicFont = TMP_FontAsset.CreateFontAsset(
+                        source.sourceFontFile,
+                        source.creationSettings.pointSize,
+                        source.atlasPadding,
+                        GlyphRenderMode.SDFAA,
+                        source.atlasWidth,
+                        source.atlasHeight,
+                        AtlasPopulationMode.Dynamic,
+                        source.isMultiAtlasTexturesEnabled);
+#endif
                 }
-                var font = await setting.LoadFontsAsync(locale, _loadCtSource.Token);
-                _loadedFonts.Add(font);
+                _font.fallbackFontAssetTable.Add(_dynamicFont);
             }
             IsLoaded = true;
-            onLoadedSubject.OnNext(_loadedFonts);
-            OnLoadedEvent.Invoke(_loadedFonts);
-
-            if (_updateAllTextOnLoad) FallbackFontData.UpdateAllText(_loadedFonts.ToArray());
+            return _font;
         }
 
-        public async void ReloadFonts(Locale locale) => await ReloadFontsAsync(locale);
-        public async UniTask ReloadFontsAsync(Locale locale)
+        public void UpdateAllText() => UpdateAllText(_font);
+        public static void UpdateAllText(params TMP_FontAsset[] fonts)
         {
-            UnloadFonts();
+            if (!Application.isPlaying) return;
+            foreach (TMP_Text tmpText in FindObjectsOfType(typeof(TMP_Text)))
+            {
+                var fallback = fonts.FirstOrDefault(f => f.name == tmpText.font.name);
+                if (fallback == null) continue;
+                tmpText.font = fallback;
+                tmpText.ForceMeshUpdate();
+            }
+        }
+
+        public void UnloadFallbacks()
+        {
+            if (_font == null) return;
+            foreach (var fallback in _font.fallbackFontAssetTable)
+            {
+                if (string.IsNullOrEmpty(fallback.name)) continue;
+                Addressables.Release(fallback);
+            }
+            _font.fallbackFontAssetTable.Clear();
+        }
+
+        public async UniTask ReloadFallbacksAsync(Locale locale)
+        {
+            UnloadFallbacks();
             await LoadFontsAsync(locale);
         }
-        public async void UnloadFonts()
+    }
+#if UNITY_EDITOR
+    [CustomEditor(typeof(FallbackFontLoader))]
+    public class FallbackFontSettingsEditor : Editor
+    {
+        private void OnEnable()
         {
-            IsLoaded = false;
-            _loadedFonts ??= new List<TMP_FontAsset>();
+            if (string.IsNullOrEmpty(target.name)) return;
+            var settings = AddressableAssetSettingsDefaultObject.Settings;
+            if (!settings.GetLabels().Contains(FallbackFontLoader.LabelName)) settings.AddLabel(FallbackFontLoader.LabelName);
 
-            _settings ??= (await _fontSettingsRefs.Select(async r => await r.LoadAssetAsync())).ToArray();
-            foreach (var setting in _settings) setting.UnloadFallbacks();
+            var assetPath = AssetDatabase.GetAssetPath(target);
+            var assetGuid = AssetDatabase.AssetPathToGUID(assetPath);
+            var entry = AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(assetGuid);
 
-            if (_updateAllTextOnLoad) FallbackFontData.UpdateAllText(_loadedFonts.ToArray());
+            if (entry == null)
+            {
+                entry = settings.CreateOrMoveEntry(AssetDatabase.AssetPathToGUID(assetPath), settings.DefaultGroup);
+                EditorUtility.SetDirty(target);
+            }
+            if (!entry.labels.TryGetValue(FallbackFontLoader.LabelName, out _))
+            {
+                entry.SetLabel(FallbackFontLoader.LabelName, true, true);
+                EditorUtility.SetDirty(target);
+            }
+            AssetDatabase.SaveAssets();
+        }
 
-            onUnloadedSubject.OnNext(Unit.Default);
-            OnUnloadedEvent.Invoke();
+        public override void OnInspectorGUI()
+        {
+            var loader = target as FallbackFontLoader;
 
-            _loadedFonts.Clear();
+            if (GUILayout.Button("Reflected in Base Font"))
+            {
+                if (string.IsNullOrEmpty(loader.BaseRef.AssetGUID))
+                {
+                    Debug.LogError("Base Ref is missing.");
+                    return;
+                }
+                ReflectedInBaseFont(loader);
+            }
+
+            base.OnInspectorGUI();
+        }
+
+        private void ReflectedInBaseFont(FallbackFontLoader loader)
+        {
+            var baseFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(loader.BaseRef.AssetGUID).AssetPath);
+            baseFont.fallbackFontAssetTable.Clear();
+
+            foreach (var languageRefs in loader.LanguageRefs)
+            {
+                var entry = AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(languageRefs.AssetGUID);
+                if (!entry.address.EndsWith(LocalizationSettings.ProjectLocale.Identifier.Code)) continue;
+                var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(entry.AssetPath);
+                baseFont.fallbackFontAssetTable.Add(font);
+            }
+
+            FallbackFontLoader.UpdateAllText(baseFont);
+            EditorUtility.SetDirty(baseFont);
+            AssetDatabase.SaveAssets();
         }
     }
+#endif
 }
