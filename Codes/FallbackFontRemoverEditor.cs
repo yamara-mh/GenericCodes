@@ -33,10 +33,10 @@ namespace Yamara.TMPro
             var removeFallbackList = new List<TMP_FontAsset>();
             var log = new StringBuilder();
 
-            foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(FallbackFontData)}"))
+            foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(FallbackFontLoader)}"))
             {
-                var settings = AssetDatabase.LoadAssetAtPath<FallbackFontData>(AssetDatabase.GUIDToAssetPath(guid));
-                var entry = AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(settings.BaseRef.AssetGUID);
+                var loader = AssetDatabase.LoadAssetAtPath<FallbackFontLoader>(AssetDatabase.GUIDToAssetPath(guid));
+                var entry = AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(loader.BaseRef.AssetGUID);
                 removeFallbackList.Add(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(entry.AssetPath));
             }
             foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(TMP_FontAsset)}"))
@@ -52,7 +52,7 @@ namespace Yamara.TMPro
                     fontAsset.fallbackFontAssetTable.Clear();
                     if (build) EditorUtility.SetDirty(fontAsset);
                 }
-                else Debug.LogError($"[{nameof(FallbackFontRemoverEditor)}] {nameof(TMP_FontAsset)} with a fallbackFontAssetTable needs to create {nameof(FallbackFontData)}.\nFont name : {fontAsset.name}");
+                else Debug.LogError($"[{nameof(FallbackFontRemoverEditor)}] {nameof(TMP_FontAsset)} with a fallbackFontAssetTable needs to create {nameof(FallbackFontLoader)}.\nFont name : {fontAsset.name}");
             }
 
             if (build)
