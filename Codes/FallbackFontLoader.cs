@@ -28,7 +28,6 @@ namespace Yamara.TMPro
         public AssetReferenceT<TMP_FontAsset>[] LanguageRefs;
 
         public static bool IsLoadedDefaultFonts { get; private set; }
-
         public bool IsLoaded { get; private set; }
 
         private TMP_FontAsset _font;
@@ -38,14 +37,13 @@ namespace Yamara.TMPro
         static void EnterPlayMode()
         {
             LoadDefaultFonts();
-            LocalizationSettings.SelectedLocaleChanged += LoadDefaultFonts;
+            LocalizationSettings.SelectedLocaleChanged += ReloadDefaultFonts;
         }
 
         private static async void LoadDefaultFonts(Locale locale = null)
         {
             IsLoadedDefaultFonts = false;
             locale ??= await LocalizationSettings.SelectedLocaleAsync;
-            var updateFonts = new List<TMP_FontAsset>();
             foreach (var locations in await Addressables.LoadResourceLocationsAsync(LabelName, typeof(FallbackFontLoader)).ToUniTask())
             {
                 var loader = await Addressables.LoadAssetAsync<FallbackFontLoader>(locations).ToUniTask();
@@ -53,7 +51,16 @@ namespace Yamara.TMPro
                 await loader.LoadFontsAsync(locale);
             }
             IsLoadedDefaultFonts = true;
-            if (updateFonts.Count > 0) UpdateAllText(updateFonts.ToArray());
+        }
+        private static async void ReloadDefaultFonts(Locale locale = null)
+        {
+            IsLoadedDefaultFonts = false;
+            foreach (var locations in await Addressables.LoadResourceLocationsAsync(LabelName, typeof(FallbackFontLoader)).ToUniTask())
+            {
+                var loader = await Addressables.LoadAssetAsync<FallbackFontLoader>(locations).ToUniTask();
+                loader.UnloadFallbacks();
+            }
+            LoadDefaultFonts();
         }
 
         public async UniTask<TMP_FontAsset> LoadFontsAsync(Locale locale = null, CancellationToken cancellationToken = default)
@@ -78,31 +85,37 @@ namespace Yamara.TMPro
 
             if (DynamicRef.RuntimeKeyIsValid())
             {
-                if (_dynamicFont == null)
-                {
-                    _dynamicFont = await Addressables.LoadAssetAsync<TMP_FontAsset>(DynamicRef.RuntimeKey);
-                    if (cancellationToken.IsCancellationRequested) return _font;
+                _dynamicFont = await Addressables.LoadAssetAsync<TMP_FontAsset>(DynamicRef.RuntimeKey);
+                if (cancellationToken.IsCancellationRequested) return _font;
 #if UNITY_EDITOR
-                    // MEMO : The Editor uses duplication to ensure that the contents of Dynamic fonts do not change
-                    var source = _dynamicFont;
-                    _dynamicFont = TMP_FontAsset.CreateFontAsset(
-                        source.sourceFontFile,
-                        source.creationSettings.pointSize,
-                        source.atlasPadding,
-                        GlyphRenderMode.SDFAA,
-                        source.atlasWidth,
-                        source.atlasHeight,
-                        AtlasPopulationMode.Dynamic,
-                        source.isMultiAtlasTexturesEnabled);
+                // MEMO : The Editor uses duplication to ensure that the contents of Dynamic fonts do not change
+                var source = _dynamicFont;
+                _dynamicFont = TMP_FontAsset.CreateFontAsset(
+                    source.sourceFontFile,
+                    source.creationSettings.pointSize,
+                    source.atlasPadding,
+                    GlyphRenderMode.SDFAA,
+                    source.atlasWidth,
+                    source.atlasHeight,
+                    AtlasPopulationMode.Dynamic,
+                    source.isMultiAtlasTexturesEnabled);
 #endif
-                }
                 _font.fallbackFontAssetTable.Add(_dynamicFont);
             }
             IsLoaded = true;
             return _font;
         }
 
-        public void UpdateAllText() => UpdateAllText(_font);
+        public async void UpdateAllText()
+        {
+            var list = new List<TMP_FontAsset>();
+            foreach (var locations in await Addressables.LoadResourceLocationsAsync(LabelName, typeof(FallbackFontLoader)).ToUniTask())
+            {
+                var loader = await Addressables.LoadAssetAsync<FallbackFontLoader>(locations).ToUniTask();
+                list.Add(loader._font);
+            }
+            UpdateAllText(list.ToArray());
+        }
         public static void UpdateAllText(params TMP_FontAsset[] fonts)
         {
             if (!Application.isPlaying) return;
@@ -121,15 +134,10 @@ namespace Yamara.TMPro
             foreach (var fallback in _font.fallbackFontAssetTable)
             {
                 if (string.IsNullOrEmpty(fallback.name)) continue;
+                Resources.UnloadAsset(fallback);
                 Addressables.Release(fallback);
             }
             _font.fallbackFontAssetTable.Clear();
-        }
-
-        public async UniTask ReloadFallbacksAsync(Locale locale)
-        {
-            UnloadFallbacks();
-            await LoadFontsAsync(locale);
         }
     }
 #if UNITY_EDITOR
