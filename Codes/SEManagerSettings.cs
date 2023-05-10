@@ -1,11 +1,28 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace Yamara
 {
+    public enum OneShotMode
+    {
+        Default = 0,
+        UI = 1,
+        SE = 2,
+    }
+
     [CreateAssetMenu(fileName = nameof(SEManagerSettings), menuName = nameof(ScriptableObject) + "/Create " + nameof(SEManagerSettings))]
     public class SEManagerSettings : ScriptableObject
     {
-        [SerializeField] public AudioSource OneShotAudioSourcePrefab = null;
+        [Serializable]
+        public class OneShotAudioSource
+        {
+            public OneShotMode Type;
+            public AudioMixerGroup Output;
+            [SerializeField, Range(0, 256)] public int Priority = 0;
+        }
+        [SerializeField] public List<OneShotAudioSource> OneShotAudioSourcesSettings = new ();
 
         [SerializeField] public AudioSource AudioSourcePrefab = null;
         [SerializeField] public int MaxAudioSource = 8;
