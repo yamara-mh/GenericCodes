@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-namespace Yamara
+namespace Particle
 {
     public class ParticleManager : MonoBehaviour
     {
@@ -59,13 +59,17 @@ namespace Yamara
                 return p.Particle;
             }
 
+            Instance._data.Add(particleRef.AssetGUID, new(1, null, default));
+
             var handle = particleRef.LoadAssetAsync();
             var particle = Instantiate(await handle.Task, Instance.transform).GetComponent<ParticleSystem>();
             particle.Stop();
             var main = particle.main;
             main.playOnAwake = false;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            Instance._data.Add(particleRef.AssetGUID, new(1, particle, handle));
+
+            Instance._data[particleRef.AssetGUID].Particle = particle;
+            Instance._data[particleRef.AssetGUID].Handle = handle;
 #if USE_UNIRX
              if (link) link.OnDestroyAsObservable().Subscribe(_ => RemoveOrDecrement(particleRef));
 #endif
