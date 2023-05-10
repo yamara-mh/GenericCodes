@@ -4,16 +4,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using TMPro;
 using UniRx;
 using UniRx.Triggers;
 using UnityEditor;
-using UnityEditor.AddressableAssets;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-namespace Yamara.TMPro
+namespace TMPro
 {
     public class FallbackFontRemoverEditor : IPreprocessBuildWithReport, IPostprocessBuildWithReport
     {
@@ -36,8 +34,7 @@ namespace Yamara.TMPro
             foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(FallbackFontLoader)}"))
             {
                 var loader = AssetDatabase.LoadAssetAtPath<FallbackFontLoader>(AssetDatabase.GUIDToAssetPath(guid));
-                var entry = AddressableAssetSettingsDefaultObject.GetSettings(false).FindAssetEntry(loader.BaseRef.AssetGUID);
-                removeFallbackList.Add(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(entry.AssetPath));
+                removeFallbackList.Add(loader.BaseFont);
             }
             foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(TMP_FontAsset)}"))
             {
