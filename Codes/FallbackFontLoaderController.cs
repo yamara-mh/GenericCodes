@@ -1,12 +1,10 @@
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using TMPro;
 using UniRx;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.Events;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -23,7 +21,7 @@ namespace Yamara.TMPro
         }
         [SerializeField] private LinkType _linkType = LinkType.Instance;
         [SerializeField] private bool _updateAllTextOnLoad = true;
-        [SerializeField] private List<AssetReferenceT<FallbackFontLoader>> _fallbackfontLoaderRefs;
+        [SerializeField] private List<FallbackFontLoader> _fallbackFontLoaders;
         [SerializeField] public UnityEvent<IEnumerable<TMP_FontAsset>> OnLoadedEvent;
         [SerializeField] public UnityEvent OnUnloadedEvent;
 
@@ -35,7 +33,6 @@ namespace Yamara.TMPro
         private readonly Subject<Unit> onUnloadedSubject = new Subject<Unit>();
         public IObservable<Unit> OnUnloaded => onUnloadedSubject;
 
-        private FallbackFontLoader[] _loaders;
         private List<TMP_FontAsset> _loadedFonts;
         private CancellationTokenSource _loadCtSource;
 
@@ -95,14 +92,8 @@ namespace Yamara.TMPro
             _loadedFonts ??= new List<TMP_FontAsset>();
             _loadedFonts.Clear();
 
-            _loaders ??= (await _fallbackfontLoaderRefs.Select(async r => await r.LoadAssetAsync())).ToArray();
-            foreach (var loader in _loaders)
+            foreach (var loader in _fallbackFontLoaders)
             {
-                if (loader.LoadOnStartup)
-                {
-                    Debug.LogWarning($"Skip loading because {loader.name} is set to load on startup.");
-                    continue;
-                }
                 var font = await loader.LoadFontsAsync(locale, _loadCtSource.Token);
                 _loadedFonts.Add(font);
             }
@@ -119,15 +110,12 @@ namespace Yamara.TMPro
             UnloadFonts();
             await LoadFontsAsync(locale);
         }
-        public async void UnloadFonts()
+        public void UnloadFonts()
         {
             IsLoaded = false;
             _loadedFonts ??= new List<TMP_FontAsset>();
 
-            _loaders ??= (await _fallbackfontLoaderRefs.Select(async r => await r.LoadAssetAsync())).ToArray();
-            foreach (var loader in _loaders) loader.UnloadFallbacks();
-
-            if (_updateAllTextOnLoad) FallbackFontLoader.UpdateAllText(_loadedFonts.ToArray());
+            foreach (var loader in _fallbackFontLoaders) loader.UnloadFallbacks();
 
             onUnloadedSubject.OnNext(Unit.Default);
             OnUnloadedEvent.Invoke();
