@@ -1,3 +1,5 @@
+using Cysharp.Threading.Tasks;
+using UnityEngine.AddressableAssets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +24,7 @@ namespace Yamara
             }
         }
         private static List<AudioSourceData> _sourcesData = new();
-        private static AudioSource _oneShotsSource = null;
+        private static Dictionary<OneShotMode, AudioSource> _oneShotsSources = new();
 
         public static SEManagerSettings Settings { get; private set; } = null;
         public static bool IsPausing { get; private set; } = false;
@@ -32,27 +34,32 @@ namespace Yamara
 
         // Generate SEManager on awake
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        static void Generate()
+        static async void Generate()
         {
             var seManager = new GameObject().AddComponent<SEManager>();
             seManager.name = nameof(SEManager);
             Instance = seManager;
             DontDestroyOnLoad(Instance.gameObject);
 
-            Settings = Resources.Load<SEManagerSettings>(nameof(SEManagerSettings));
-            if (Settings == null) Debug.LogError(nameof(SEManagerSettings) + " does not exist in Resources");
+            Settings = await Addressables.LoadAssetAsync<SEManagerSettings>(nameof(SEManagerSettings));
+            // When not using UniTask and Addressables
+            // Settings = Resources.Load<SEManagerSettings>(nameof(SEManagerSettings));
+            if (Settings == null) Debug.LogError(nameof(SEManagerSettings) + " does not exist");
 
             for (int i = 0; i < Settings.MaxAudioSource; i++) _sourcesData.Add(new(CreateAudioSource()));
 
-            if (Settings.OneShotAudioSourcePrefab)
+            foreach (var settings in Settings.OneShotAudioSourcesSettings)
             {
-                _oneShotsSource = Instantiate(Settings.OneShotAudioSourcePrefab);
-                _oneShotsSource.priority = 0;
-                _oneShotsSource.reverbZoneMix = 0f;
-                _oneShotsSource.dopplerLevel = 0f;
+                _oneShotsSources.Add(settings.Type, CreateOneShotAudioSource(settings));
             }
-            else _oneShotsSource = new GameObject(nameof(AudioSource)).AddComponent<AudioSource>();
-            _oneShotsSource.transform.parent = Instance.transform;
+            if (_oneShotsSources.Count == 0)
+            {
+                _oneShotsSources.Add(OneShotMode.Default, CreateOneShotAudioSource(new()
+                {
+                    Output = null,
+                    Priority = 0,
+                }));
+            }
         }
 
         private static AudioSource CreateAudioSource()
@@ -61,6 +68,16 @@ namespace Yamara
             audioSource.transform.parent = Instance.transform;
             CleanAudioSource(audioSource);
             return audioSource;
+        }
+        private static AudioSource CreateOneShotAudioSource(SEManagerSettings.OneShotAudioSource settings)
+        {
+            var source = Instance.gameObject.AddComponent<AudioSource>();
+            source.outputAudioMixerGroup = settings.Output;
+            source.playOnAwake = false;
+            source.priority = settings.Priority;
+            source.reverbZoneMix = 0f;
+            source.dopplerLevel = 0f;
+            return source;
         }
 
         private void LateUpdate()
@@ -97,10 +114,8 @@ namespace Yamara
             data.Ended = null;
         }
 
-        public static void PlayOneShot(AudioClip clip, float volumeScale = 1f)
-        {
-            _oneShotsSource.PlayOneShot(clip, volumeScale);
-        }
+        public static void PlayOneShot(AudioClip clip, OneShotMode mode = OneShotMode.Default, float volumeScale = 1f)
+            => _oneShotsSources[mode].PlayOneShot(clip, volumeScale);
 
         public static AudioSource TryGetAudioSource(int priority = 0, Transform transform = null, Action<AudioSource> ended = null)
         {
@@ -147,9 +162,10 @@ namespace Yamara
             else data.Source.spatialBlend = 0f;
         }
 
-        public static void Stop(bool audioSources = true, bool oneShots = true)
+        public static void Stop(bool audioSources = true, bool oneShotAll = true, params OneShotMode[] oneShotModes)
         {
-            if (oneShots) _oneShotsSource.Stop();
+            if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.Stop();
+            foreach (var mode in oneShotModes) _oneShotsSources[mode].Stop();
             if (!audioSources) return;
 
             foreach (var item in _sourcesData)
@@ -162,17 +178,19 @@ namespace Yamara
         }
 
         public static IEnumerable<AudioSource> GetAudioSourcesAll() => _sourcesData.Select(d => d.Source);
-        public static void Pause(bool audioSources = true, bool oneShots = true)
+        public static void Pause(bool audioSources = true, bool oneShotAll = true, params OneShotMode[] oneShotModes)
         {
-            if (oneShots) _oneShotsSource.Pause();
+            if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.Pause();
+            foreach (var mode in oneShotModes) _oneShotsSources[mode].Pause();
             if (!audioSources) return;
 
             IsPausing = true;
             foreach (var item in _sourcesData) item.Source.Pause();
         }
-        public static void UnPause(bool audioSources = true, bool oneShots = true)
+        public static void UnPause(bool audioSources = true, bool oneShotAll = true, params OneShotMode[] oneShotModes)
         {
-            if (oneShots) _oneShotsSource.UnPause();
+            if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.UnPause();
+            foreach (var mode in oneShotModes) _oneShotsSources[mode].UnPause();
             if (!audioSources) return;
 
             IsPausing = false;
@@ -220,7 +238,8 @@ namespace Yamara
             audioSource.PlayDelayed(delay);
             return audioSource;
         }
-        public static void PlayOneShot(this AudioClip clip, float volumeScale = 1f) => SEManager.PlayOneShot(clip, volumeScale);
+        public static void PlayOneShot(this AudioClip clip, OneShotMode mode = OneShotMode.Default, float volumeScale = 1f)
+            => SEManager.PlayOneShot(clip, mode, volumeScale);
 
         public static AudioSource SetPos(this AudioSource audioSource, Vector3 position, float spatialBlend = 1f)
         {
