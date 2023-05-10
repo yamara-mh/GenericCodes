@@ -10,6 +10,7 @@ namespace Yamara
         Default = 0,
         UI = 1,
         SE = 2,
+        Voice = 3,
     }
 
     [CreateAssetMenu(fileName = nameof(SEManagerSettings), menuName = nameof(ScriptableObject) + "/Create " + nameof(SEManagerSettings))]
