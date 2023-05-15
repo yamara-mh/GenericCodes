@@ -33,13 +33,20 @@ namespace TMPro
 
         private TextMeshProUGUI _text = null;
         private RectTransform _rendererRoot = null;
-        private List<CanvasRenderer> _renderers = new();
+        [SerializeField] private List<CanvasRenderer> _renderers = new();
 
         private void OnEnable()
         {
             _text ??= transform.GetComponent<TextMeshProUGUI>();
-            UpdateRenderer();
             TMPro_EventManager.TEXT_CHANGED_EVENT.Add(CheckUpdateText);
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                EditorApplication.delayCall += UpdateRenderer;
+                return;
+            }
+#endif
+            UpdateRenderer();
         }
         private void Start()
         {
@@ -81,13 +88,17 @@ namespace TMPro
                 if (r != null) r.materialCount = 0;
             }
         }
+        private void CreateRendererRoot()
+        {
+            _rendererRoot = new GameObject(nameof(TMProUI_Outline), typeof(RectTransform)).GetComponent<RectTransform>();
+            _rendererRoot.SetParent(_text.transform, false);
+        }
         public void UpdateRenderer()
         {
-            if (_rendererRoot == null)
-            {
-                _rendererRoot = new GameObject(nameof(TMProUI_Outline), typeof(RectTransform)).GetComponent<RectTransform>();
-                _rendererRoot.SetParent(_text.transform, false);
-            }
+#if UNITY_EDITOR
+            if (!Application.isPlaying) EditorApplication.delayCall -= UpdateRenderer;
+#endif
+            if (_rendererRoot == null) CreateRendererRoot();
             CleanRenderers();
             if (!enabled || !_text.enabled || string.IsNullOrEmpty(_text.text)) return;
 
@@ -126,12 +137,8 @@ namespace TMPro
             }
             CanvasRenderer GetRenderer()
             {
-                if (_renderers.Count > rCount)
-                {
-                    if (_renderers[rCount] == null) _renderers[rCount] = CreateRenderer();
-                    return _renderers[rCount];
-                }
-                _renderers.Add(CreateRenderer());
+                if (_renderers.Count <= rCount) _renderers.Add(CreateRenderer());
+                else if (_renderers[rCount] == null) _renderers[rCount] = CreateRenderer();
                 return _renderers[rCount];
             }
             CanvasRenderer CreateRenderer()
@@ -184,17 +191,19 @@ namespace TMPro
         private static Vector2[] Dir8 => new Vector2[] { new(Sqr225l, Sqr225s), new(1f - Sqr225s, Sqr225l), new(-Sqr225s, Sqr225l), new(-Sqr225l, Sqr225s), new(-Sqr225l, -Sqr225s), new(-Sqr225s, -Sqr225l), new(1f - Sqr225s, -Sqr225l), new(Sqr225l, -Sqr225s) };
 
         private List<Vector2> _prevDirections = new();
+        private bool _creatingRoot = false;
 
         private void OnValidate()
         {
             SetPreset(_directionsPreset);
             if (UpdatePrevDirections()) RemoveAllRenderers();
-            EditorApplication.delayCall += DelayedOnValidate;
-        }
-        private void DelayedOnValidate()
-        {
-            EditorApplication.delayCall -= DelayedOnValidate;
-            if (this == null) return;
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                EditorApplication.delayCall += UpdateRenderer;
+                return;
+            }
+#endif
             UpdateRenderer();
         }
 
