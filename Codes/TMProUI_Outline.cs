@@ -17,7 +17,7 @@ namespace TMPro
         [SerializeField, Range(0f, 16f)] public float Width = 2f;
         [SerializeField] private List<Vector2> _directions = new();
 #if UNITY_EDITOR
-        [SerializeField] private OutlineMode _directionPreset = OutlineMode.Dir4a;
+        [SerializeField] private OutlineMode _directionsPreset = OutlineMode.Dir4a;
         public enum OutlineMode
         {
             Custom = 0,
@@ -184,7 +184,7 @@ namespace TMPro
 
         private void OnValidate()
         {
-            SetPreset(_directionPreset);
+            SetPreset(_directionsPreset);
             if (UpdatePrevDirections()) RemoveAllRenderers();
             EditorApplication.delayCall += DelayedOnValidate;
         }
