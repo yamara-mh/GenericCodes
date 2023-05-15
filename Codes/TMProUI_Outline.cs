@@ -51,8 +51,11 @@ namespace TMPro
         }
         private void OnDisable()
         {
+            var textEnabled = _text.enabled;
+            _text.enabled = false;
+            if (textEnabled) _text.enabled = true;
+
             CleanRenderers();
-            _text.ForceMeshUpdate();
             TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(CheckUpdateText);
         }
         private void CheckUpdateText(Object o)
