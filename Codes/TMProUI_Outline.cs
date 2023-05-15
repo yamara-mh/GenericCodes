@@ -71,7 +71,7 @@ namespace TMPro
             }
         }
 
-        public void CleanRenderers()
+        private void CleanRenderers()
         {
             foreach (var r in _renderers)
             {
@@ -146,7 +146,7 @@ namespace TMPro
             RemoveAllRenderers();
             _directions = directions.ToList();
         }
-        public void RemoveAllRenderers()
+        private void RemoveAllRenderers()
         {
             for (int i = _renderers.Count - 1; i >= 0; i--)
             {
