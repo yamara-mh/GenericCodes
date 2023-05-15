@@ -1,196 +1,248 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Cysharp.Threading.Tasks.Triggers;
-using Cysharp.Threading.Tasks.Linq;
-using Cysharp.Threading.Tasks;
+using UniRx;
+using System;
+using System.Linq;
+using Object = UnityEngine.Object;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 namespace TMPro
 {
+    [RequireComponent(typeof(TextMeshProUGUI))]
     [ExecuteAlways]
-    [RequireComponent(typeof(Canvas), typeof(TextMeshProUGUI))]
     public class TMProUI_Outline : MonoBehaviour
     {
-        private const AdditionalCanvasShaderChannels CanvasShaderChannels
-            = AdditionalCanvasShaderChannels.TexCoord1
-            | AdditionalCanvasShaderChannels.Normal
-            | AdditionalCanvasShaderChannels.Tangent;
-
-        [SerializeField] private TextMeshProUGUI _tmpText;
         [SerializeField, Range(0f, 16f)] public float Width = 2f;
-        [SerializeField] public Vector2[] Directions = new Vector2[0];
-        [SerializeField] private OutlineMode _preset = OutlineMode.Direction4;
+        [SerializeField] private List<Vector2> _directions = new();
+#if UNITY_EDITOR
+        [SerializeField] private OutlineMode _directionPreset = OutlineMode.Dir4a;
         public enum OutlineMode
         {
             Custom = 0,
-            Direction4 = 1,
-            Direction6 = 2,
-            Direction8 = 3,
+            Dir4a = 1,
+            Dir4b = 2,
+            Dir6 = 3,
+            Dir8 = 5,
+            Dir4b_Dir4a = 6,
+            Dir6_Dir4b = 8,
+            Dir8_Dir4b = 9,
         }
+#endif
 
-        [SerializeField] private Canvas _textCanvas;
-        [SerializeField] private Canvas _outlineCanvas;
-
-        private int _useRenderCount = 0;
+        private TextMeshProUGUI _text = null;
+        private RectTransform _rendererRoot = null;
         private List<CanvasRenderer> _renderers = new();
 
-        private void Awake()
-        {
-            _tmpText ??= transform.GetComponent<TextMeshProUGUI>();
-            SetTriggers();
-        }
-        private void SetTriggers()
-        {
-            var ct = this.GetCancellationTokenOnDestroy();
-            _tmpText.GetAsyncEnableTrigger().Subscribe(_ => _outlineCanvas.gameObject.SetActive(true)).AddTo(ct);
-            _tmpText.GetAsyncDisableTrigger().Subscribe(_ => _outlineCanvas.gameObject.SetActive(false)).AddTo(ct);
-            _tmpText.GetAsyncPostRenderTrigger().Subscribe(_ => UpdateRenderer()).AddTo(ct);
-        }
         private void OnEnable()
         {
-            _outlineCanvas?.gameObject.SetActive(true);
+            _text ??= transform.GetComponent<TextMeshProUGUI>();
             UpdateRenderer();
+            TMPro_EventManager.TEXT_CHANGED_EVENT.Add(CheckUpdateText);
+        }
+        private void Start()
+        {
+            _text.ObserveEveryValueChanged(t => t.enabled).Subscribe(enabled =>
+            {
+                if (enabled) OnEnable();
+                else OnDisable();
+            }).AddTo(this);
         }
         private void OnDisable()
         {
-            _outlineCanvas?.gameObject.SetActive(false);
+            CleanRenderers();
+            _text.ForceMeshUpdate();
+            TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(CheckUpdateText);
         }
-
+        private void CheckUpdateText(Object o)
+        {
+            if (o == _text) UpdateRenderer();
+        }
         private void OnDestroy()
         {
-            if (_outlineCanvas == null) return;
+            if (_rendererRoot != null)
+            {
 #if UNITY_EDITOR
-            EditorApplication.delayCall += () => DestroyImmediate(_outlineCanvas.gameObject);
+                EditorApplication.delayCall += () => DestroyImmediate(_rendererRoot.gameObject);
 #else
-            Destroy(_outlineCanvas.gameObject);
+                Destroy(_rendererRect.gameObject);
 #endif
+            }
         }
 
-        private void UpdateCanvases()
+        public void CleanRenderers()
         {
-            if (_textCanvas == null)
+            foreach (var r in _renderers)
             {
-                _textCanvas = GetComponent<Canvas>();
-                _textCanvas.overrideSorting = true;
-                _textCanvas.additionalShaderChannels = CanvasShaderChannels;
+                if (r != null) r.materialCount = 0;
             }
-            if (_outlineCanvas == null)
-            {
-                _outlineCanvas = new GameObject(nameof(TMProUI_Outline), typeof(RectTransform)).AddComponent<Canvas>();
-                _outlineCanvas.overrideSorting = true;
-                _outlineCanvas.additionalShaderChannels = CanvasShaderChannels;
-
-                var rect = (_outlineCanvas.transform as RectTransform);
-                rect.parent = _tmpText.transform;
-                rect.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-                rect.sizeDelta = Vector2.zero;
-            }
-            if (_tmpText.canvas.renderMode == RenderMode.ScreenSpaceCamera)
-            {
-                (_outlineCanvas.transform as RectTransform).localScale
-                    = Vector3.one * _tmpText.canvas.transform.localScale.z;
-            }
-            _outlineCanvas.sortingOrder = _textCanvas.sortingOrder - 1;
         }
         public void UpdateRenderer()
         {
-            UpdateCanvases();
-            CleanRenderers(_useRenderCount);
-            _useRenderCount = 0;
-            var TmpTransform = _tmpText.rectTransform;
-
-            DrawRender(_tmpText.mesh, _tmpText.fontMaterial);
-
-            for (int ci = TmpTransform.childCount - 1; ci >= 0; ci--)
+            if (_rendererRoot == null)
             {
-                if (TmpTransform.GetChild(ci).TryGetComponent(out TMP_SubMeshUI tmp))
-                {
-                    DrawRender(tmp.mesh, tmp.material);
-                }
+                _rendererRoot = new GameObject(nameof(TMProUI_Outline), typeof(RectTransform)).GetComponent<RectTransform>();
+                _rendererRoot.SetParent(_text.transform, false);
             }
+            CleanRenderers();
+            if (!enabled || !_text.enabled || string.IsNullOrEmpty(_text.text)) return;
 
-            void DrawRender(Mesh mesh, Material material)
+            var rCount = 0;
+            var meshes = new List<Mesh>();
+            var mats = new List<Material>();
+
+            for (int i = Math.Min(_text.textInfo.materialCount, _text.textInfo.meshInfo.Length) - 1; i >= 0; i--)
             {
-                var width = Width;
-                if (_tmpText.canvas.renderMode == RenderMode.ScreenSpaceCamera)
-                {
-                    width /= _tmpText.canvas.transform.localScale.z;
-                }
-                foreach (var direction in Directions)
-                {
-                    if (_renderers.Count <= _useRenderCount) _renderers.Add(CreateCanvasRenderer());
-                    var renderer = _renderers[_useRenderCount];
-                    (renderer.transform as RectTransform).localPosition = direction * width;
-                    renderer.materialCount = 1;
-                    renderer.SetMaterial(material, 0);
-                    renderer.SetMesh(mesh);
-                    _useRenderCount++;
-                }
+                var mesh = _text.textInfo.meshInfo[i].mesh;
+                var mat = _text.textInfo.meshInfo[i].material;
+                meshes.Add(mesh);
+                mats.Add(mat);
+                DrawOutlines(mesh, mat);
             }
-            CleanRenderers(_useRenderCount);
+            for (int i = meshes.Count - 1; i >= 0; i--) Draw(meshes[i], mats[i], Vector2.zero);
+
+            _text.ClearMesh();
+
+
+            void DrawOutlines(Mesh mesh, Material material)
+            {
+                foreach (var dir in _directions) Draw(mesh, material, dir * Width);
+                meshes.Add(mesh);
+                mats.Add(material);
+            }
+            void Draw(Mesh mesh, Material material, Vector2 shift)
+            {
+                var renderer = GetRenderer();
+                var rect = renderer.transform as RectTransform;
+                rect.localPosition = shift;
+                renderer.materialCount = 1;
+                renderer.SetMaterial(material, 0);
+                renderer.SetMesh(mesh);
+                rCount++;
+            }
+            CanvasRenderer GetRenderer()
+            {
+                if (_renderers.Count > rCount)
+                {
+                    if (_renderers[rCount] == null) _renderers[rCount] = CreateRenderer();
+                    return _renderers[rCount];
+                }
+                _renderers.Add(CreateRenderer());
+                return _renderers[rCount];
+            }
+            CanvasRenderer CreateRenderer()
+            {
+                var renderer = new GameObject(nameof(Renderer), typeof(RectTransform)).AddComponent<CanvasRenderer>();
+                var rect = renderer.transform as RectTransform;
+                rect.SetParent(_rendererRoot, false);
+                rect.sizeDelta = Vector2.zero;
+                return renderer;
+            }
         }
-        private CanvasRenderer CreateCanvasRenderer()
+
+        public void SetDirections(Vector2[] directions)
         {
-            CanvasRenderer outline;
-            outline = new GameObject(nameof(outline), typeof(RectTransform)).AddComponent<CanvasRenderer>();
-            outline.transform.parent = _outlineCanvas.transform;
-            var rect = (outline.transform as RectTransform);
-            rect.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-            rect.localScale = Vector3.one;
-            rect.sizeDelta = Vector2.zero;
-            return outline;
+            RemoveAllRenderers();
+            _directions = directions.ToList();
         }
-        private void CleanRenderers(int useCount)
+        public void RemoveAllRenderers()
         {
-            for (int i = _renderers.Count - 1; i >= useCount; i--)
-            {
-                var removedRenderer = _renderers[i];
-                _renderers.RemoveAt(i);
-                if (removedRenderer == null) continue;
-
-#if UNITY_EDITOR
-                EditorApplication.delayCall += () => DestroyImmediate(removedRenderer.gameObject);
-#else
-                Destroy(removedRenderer.gameObject);
-#endif
-            }
-
             for (int i = _renderers.Count - 1; i >= 0; i--)
             {
-                if (_renderers[i] == null) _renderers[i] = CreateCanvasRenderer();
+                var renderer = _renderers[i];
+                if (renderer != null)
+                {
+#if UNITY_EDITOR
+                    EditorApplication.delayCall += () =>
+                    {
+                        if (renderer != null) DestroyImmediate(renderer.gameObject);
+                    };
+#else
+                    Destroy(_renderers[i].gameObject);
+#endif
+                }
+                renderer.SetMesh(null);
+                _renderers.RemoveAt(i);
             }
         }
-        public void SetPreset(OutlineMode mode)
+
+#if UNITY_EDITOR
+
+        private const float InSideWidthRate = 0.55f;
+
+        private const float Sqr2Half = 0.7071068f;
+        private const float Sqr3Half = 0.8660254f;
+        private const float Sqr225s = 0.3826835f;
+        private const float Sqr225l = 0.9238796f;
+        private static Vector2[] Dir4a => new Vector2[] { Vector2.right, Vector2.up, Vector2.left, Vector2.down };
+        private static Vector2[] Dir4b => new Vector2[] { new(Sqr2Half, Sqr2Half), new(-Sqr2Half, Sqr2Half), new(-Sqr2Half, -Sqr2Half), new(Sqr2Half, -Sqr2Half) };
+        private static Vector2[] Dir6 => new Vector2[] { Vector2.right, new(0.5f, Sqr3Half), new(-0.5f, Sqr3Half), Vector2.left, new(-0.5f, -Sqr3Half), new(0.5f, -Sqr3Half) };
+        private static Vector2[] Dir8 => new Vector2[] { new(Sqr225l, Sqr225s), new(1f - Sqr225s, Sqr225l), new(-Sqr225s, Sqr225l), new(-Sqr225l, Sqr225s), new(-Sqr225l, -Sqr225s), new(-Sqr225s, -Sqr225l), new(1f - Sqr225s, -Sqr225l), new(Sqr225l, -Sqr225s) };
+
+        private List<Vector2> _prevDirections = new();
+
+        private void OnValidate()
+        {
+            SetPreset(_directionPreset);
+            if (UpdatePrevDirections()) RemoveAllRenderers();
+            EditorApplication.delayCall += DelayedOnValidate;
+        }
+        private void DelayedOnValidate()
+        {
+            EditorApplication.delayCall -= DelayedOnValidate;
+            if (this == null) return;
+            UpdateRenderer();
+        }
+
+        private void SetPreset(OutlineMode mode)
         {
             switch (mode)
             {
-                case OutlineMode.Direction4:
-                    Directions = new Vector2[]
-                    { Vector2.right, Vector2.up, Vector2.left, Vector2.down };
+                case OutlineMode.Dir4a:
+                    _directions = Dir4a.ToList();
                     break;
-                case OutlineMode.Direction6:
-                    Directions = new Vector2[]
-                    { Vector2.right, new(0.5f, Mathf.Sqrt(3f) / 2f), new(-0.5f, Mathf.Sqrt(3f) / 2f),
-                      Vector2.left, new(-0.5f, -Mathf.Sqrt(3f) / 2f), new(0.5f, -Mathf.Sqrt(3f) / 2f) };
+                case OutlineMode.Dir4b:
+                    _directions = Dir4b.ToList();
                     break;
-                case OutlineMode.Direction8:
-                    Directions = new Vector2[]
-                    { Vector2.right, new(1f, 1f), Vector2.up, new(-1f, 1f),
-                      Vector2.left, new(-1f, -1f), Vector2.down, new(1f, -1f) };
+                case OutlineMode.Dir6:
+                    _directions = Dir6.ToList();
+                    break;
+                case OutlineMode.Dir8:
+                    _directions = Dir8.ToList();
+                    break;
+                case OutlineMode.Dir4b_Dir4a:
+                    _directions = Dir4b.ToList();
+                    foreach (var d in Dir4a) _directions.Add(d * InSideWidthRate);
+                    break;
+                case OutlineMode.Dir6_Dir4b:
+                    _directions = Dir6.ToList();
+                    foreach (var d in Dir4b) _directions.Add(d * InSideWidthRate);
+                    break;
+                case OutlineMode.Dir8_Dir4b:
+                    _directions = Dir8.ToList();
+                    foreach (var d in Dir4b) _directions.Add(d * InSideWidthRate);
                     break;
                 case OutlineMode.Custom:
                 default: break;
             }
         }
-
-#if UNITY_EDITOR
-        private void OnValidate()
+        private bool UpdatePrevDirections()
         {
-            if (Application.isPlaying) return;
-            SetPreset(_preset);
-            UpdateRenderer();
+            if (_prevDirections.Count != _directions.Count)
+            {
+                _prevDirections = new(_directions);
+                RemoveAllRenderers();
+                return true;
+            }
+            for (int i = _directions.Count - 1; i >= 0; i--)
+            {
+                if (_prevDirections[i] == _directions[i]) continue;
+                _prevDirections = new(_directions);
+                RemoveAllRenderers();
+                return true;
+            }
+            return false;
         }
 #endif
     }
