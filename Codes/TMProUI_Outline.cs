@@ -14,7 +14,7 @@ namespace TMPro
     [ExecuteAlways]
     public class TMProUI_Outline : MonoBehaviour
     {
-        [SerializeField, Range(0f, 16f)] public float Width = 2f;
+        [SerializeField, Range(0f, 16f)] private float _width = 2f;
         [SerializeField] private List<Vector2> _directions = new();
 #if UNITY_EDITOR
         [SerializeField] private OutlineMode _directionsPreset = OutlineMode.Dir4a;
@@ -121,7 +121,7 @@ namespace TMPro
 
             void DrawOutlines(Mesh mesh, Material material)
             {
-                foreach (var dir in _directions) Draw(mesh, material, dir * Width);
+                foreach (var dir in _directions) Draw(mesh, material, dir * _width);
                 meshes.Add(mesh);
                 mats.Add(material);
             }
@@ -151,10 +151,17 @@ namespace TMPro
             }
         }
 
-        public void SetDirections(Vector2[] directions)
+        public void SetWidth(float width, bool update = true)
         {
-            RemoveAllRenderers();
+            _width = width;
+            if (update) UpdateRenderer();
+        }
+        public void SetDirections(List<Vector2> directions, bool update = true)
+        {
+            var prevDirectionsCount = directions.Count;
+            if (prevDirectionsCount != directions.Count) RemoveAllRenderers();
             _directions = directions.ToList();
+            if (update) UpdateRenderer();
         }
         private void RemoveAllRenderers()
         {
