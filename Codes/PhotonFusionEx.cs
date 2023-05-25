@@ -163,6 +163,21 @@ namespace Extensions
             return v;
         }
 
+        public static void Disconnects(this NetworkRunner runner, IEnumerable<PlayerRef> targetPlayers)
+        {
+            foreach (var player in targetPlayers)
+            {
+                if (runner.ActivePlayers.Contains(player)) runner.Disconnect(player);
+            }
+        }
+        public static void DisconnectsToNoResponse(this NetworkRunner runner, IEnumerable<PlayerRef> responcedPlayers)
+        {
+            foreach (var player in runner.ActivePlayers)
+            {
+                if (!responcedPlayers.Contains(player)) runner.Disconnect(player);
+            }
+        }
+
         public static bool TryAssignInputAuthority(this NetworkObject obj, NetworkRunner runner, Guid token, bool noAssignment = true)
         {
             foreach (var p in runner.ActivePlayers)
