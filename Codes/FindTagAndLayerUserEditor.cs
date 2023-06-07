@@ -10,7 +10,7 @@ namespace Yamara
 {
     public class FindTagAndLayerUserEditor : EditorWindow
     {
-        [MenuItem("Tools/Utility/" + nameof(FindTagAndLayerUserEditor))]
+        [MenuItem("Tools/Utility/Open " + nameof(FindTagAndLayerUserEditor))]
         private static void Open()
         {
             var window = (FindTagAndLayerUserEditor)GetWindow(typeof(FindTagAndLayerUserEditor));
