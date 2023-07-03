@@ -24,7 +24,7 @@ namespace Yamara
 
         public static SEManager Instance { get; private set; } = null;
 
-        private static AudioSource _orininalAudioSource;
+        private static AudioSource _originalAudioSource;
         private static List<AudioSourceData> _sourcesData = new();
         private static Dictionary<AudioMixerMode, AudioSource> _oneShotsSources = new();
 
@@ -47,7 +47,7 @@ namespace Yamara
             // Settings = await Addressables.LoadAssetAsync<SEManagerSettings>(nameof(SEManagerSettings));
             if (Settings == null) Debug.LogError(nameof(SEManagerSettings) + " does not exist");
 
-            _orininalAudioSource = Settings.DefaultAudioSourcePrefab ? Settings.DefaultAudioSourcePrefab : null;
+            _originalAudioSource = Settings.DefaultAudioSourcePrefab ? Settings.DefaultAudioSourcePrefab : Instance.gameObject.AddComponent<AudioSource>();
 
             for (int i = 0; i < Settings.MaxAudioSource; i++) _sourcesData.Add(new(CreateAudioSource()));
 
@@ -105,7 +105,7 @@ namespace Yamara
         private static void CleanData(AudioSourceData data)
         {
             CleanAudioSource(data.Source);
-            data.Ended?.Invoke((_orininalAudioSource, data.Source));
+            data.Ended?.Invoke((_originalAudioSource, data.Source));
             data.Ended = null;
         }
 
@@ -235,7 +235,7 @@ namespace Yamara
 
             foreach (var removeSource in removeSources)
             {
-                removeSource.Ended?.Invoke((_orininalAudioSource, removeSource.Source));
+                removeSource.Ended?.Invoke((_originalAudioSource, removeSource.Source));
                 removeSource.Ended = null;
             }
             _sourcesData.RemoveAll(a => removeSources.Any(r => r == a));
