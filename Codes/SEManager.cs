@@ -26,7 +26,7 @@ namespace Yamara
 
         private static AudioSource _orininalAudioSource;
         private static List<AudioSourceData> _sourcesData = new();
-        private static Dictionary<MixerMode, AudioSource> _oneShotsSources = new();
+        private static Dictionary<AudioMixerMode, AudioSource> _oneShotsSources = new();
 
         public static SEManagerSettings Settings { get; private set; } = null;
         public static bool IsPausing { get; private set; } = false;
@@ -57,9 +57,9 @@ namespace Yamara
             }
             if (_oneShotsSources.Count == 0)
             {
-                _oneShotsSources.Add(MixerMode.Default, CreateOneShotAudioSource(new()
+                _oneShotsSources.Add(AudioMixerMode.Default, CreateOneShotAudioSource(new()
                 {
-                    Mode = MixerMode.Default,
+                    Mode = AudioMixerMode.Default,
                     OneShotPriority = 0,
                 }));
             }
@@ -75,7 +75,7 @@ namespace Yamara
         private static AudioSource CreateOneShotAudioSource(SEManagerSettings.AudioMixerSetting settings)
         {
             var source = Instance.gameObject.AddComponent<AudioSource>();
-            source.outputAudioMixerGroup = Settings.AudioMixerGroupSettings.FirstOrDefault(m => m.Mode == MixerMode.Default).Output;
+            source.outputAudioMixerGroup = Settings.AudioMixerGroupSettings.FirstOrDefault(m => m.Mode == AudioMixerMode.Default).Output;
             source.playOnAwake = false;
             source.priority = settings.OneShotPriority;
             source.reverbZoneMix = 0f;
@@ -144,7 +144,7 @@ namespace Yamara
             else data.Source.spatialBlend = 0f;
         }
 
-        public static void PlayOneShot(AudioClip clip, MixerMode mode = MixerMode.Default, float volumeScale = 1f)
+        public static void PlayOneShot(AudioClip clip, AudioMixerMode mode = AudioMixerMode.Default, float volumeScale = 1f)
         {
             _oneShotsSources[mode].PlayOneShot(clip, volumeScale);
         }
@@ -180,7 +180,7 @@ namespace Yamara
             return sourceData.Source;
         }
 
-        public static void Stop(bool audioSources = true, bool oneShotAll = true, params MixerMode[] oneShotModes)
+        public static void Stop(bool audioSources = true, bool oneShotAll = true, params AudioMixerMode[] oneShotModes)
         {
             if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.Stop();
             foreach (var mode in oneShotModes) _oneShotsSources[mode].Stop();
@@ -199,7 +199,7 @@ namespace Yamara
         {
             return _sourcesData.Select(d => d.Source);
         }
-        public static void Pause(bool audioSources = true, bool oneShotAll = true, params MixerMode[] oneShotModes)
+        public static void Pause(bool audioSources = true, bool oneShotAll = true, params AudioMixerMode[] oneShotModes)
         {
             if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.Pause();
             foreach (var mode in oneShotModes) _oneShotsSources[mode].Pause();
@@ -208,7 +208,7 @@ namespace Yamara
             IsPausing = true;
             foreach (var item in _sourcesData) item.Source.Pause();
         }
-        public static void UnPause(bool audioSources = true, bool oneShotAll = true, params MixerMode[] oneShotModes)
+        public static void UnPause(bool audioSources = true, bool oneShotAll = true, params AudioMixerMode[] oneShotModes)
         {
             if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.UnPause();
             foreach (var mode in oneShotModes) _oneShotsSources[mode].UnPause();
@@ -259,13 +259,19 @@ namespace Yamara
             audioSource.PlayDelayed(delay);
             return audioSource;
         }
-        public static void PlayOneShot(this AudioClip clip, MixerMode mode = MixerMode.Default, float volumeScale = 1f)
+        public static void PlayOneShot(this AudioClip clip, AudioMixerMode mode = AudioMixerMode.Default, float volumeScale = 1f)
             => SEManager.PlayOneShot(clip, mode, volumeScale);
 
         public static AudioSource SetPos(this AudioSource audioSource, Vector3 position, float spatialBlend = 1f)
         {
             audioSource.transform.position = position;
             audioSource.spatialBlend = spatialBlend;
+            return audioSource;
+        }
+
+        public static AudioSource SetOutput(this AudioSource audioSource, AudioMixerMode mixer)
+        {
+            audioSource.outputAudioMixerGroup = SEManager.Settings.GetAudioMixerGroup(mixer);
             return audioSource;
         }
     }
