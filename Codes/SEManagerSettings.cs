@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
 
 namespace Yamara
 {
-    public enum OneShotMode
+    public enum MixerMode
     {
         Default = 0,
         UI = 1,
@@ -17,19 +18,37 @@ namespace Yamara
     public class SEManagerSettings : ScriptableObject
     {
         [Serializable]
-        public class OneShotAudioSource
+        public class AudioMixerSetting
         {
-            public OneShotMode Type;
-            public AudioMixerGroup Output;
-            [SerializeField, Range(0, 256)] public int Priority = 0;
+            [SerializeField] public MixerMode Mode;
+            [SerializeField] public AudioMixerGroup Output;
+            [SerializeField, Range(0, 256)] public int OneShotPriority = 128;
         }
-        [SerializeField] public List<OneShotAudioSource> OneShotAudioSourcesSettings = new ();
+        [SerializeField] public List<AudioMixerSetting> AudioMixerGroupSettings = new();
 
-        [SerializeField] public AudioSource AudioSourcePrefab = null;
-        [SerializeField] public int MaxAudioSource = 8;
+        public AudioMixerGroup GetAudioMixerGroup(MixerMode mode) => AudioMixerGroupSettings.FirstOrDefault(m => m.Mode == mode).Output;
 
-        [SerializeField, Range(0f, 1f)] public float DefaultVolume = 1f;
-        [SerializeField, Range(0f, 1f)] public float DefaultPitch = 1f;
-        [SerializeField] public float DefaultMaxDistance = 50f;
+        [SerializeField]
+        public int MaxAudioSource = 8;
+
+        [Header("Option")]
+        [SerializeField, Tooltip("If not specified, the default settings will be used")]
+        public AudioSource DefaultAudioSourcePrefab = null;
+
+        [Header("Clean Properties (Add/Remove as desired)")]
+        [SerializeField] public AudioMixerGroup output;
+        [SerializeField] public bool bypassEffects;
+        [SerializeField] public bool bypassListenerEffects;
+        [SerializeField] public bool bypassReverbZones;
+        [SerializeField, Range(0f, 1f)] public float volume = 1f;
+        [SerializeField, Range(0f, 3f)] public float pitch = 1f;
+        [SerializeField, Range(-1f, 1f)] public float panStereo = 0f;
+        [SerializeField, Range(0f, 1f)] public float spatialBlend = 0f;
+        [SerializeField, Range(0f, 1.1f)] public float reverbZoneMix = 0f;
+        [SerializeField, Range(0f, 5f)] public float dopplerLevel = 0f;
+        [SerializeField, Range(0f, 360f)] public float spread = 45f;
+        [SerializeField] public AudioRolloffMode volumeRolloff = AudioRolloffMode.Logarithmic;
+        [SerializeField] public float minDistance = 1f;
+        [SerializeField] public float maxDistance = 50f;
     }
 }
