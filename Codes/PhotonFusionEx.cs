@@ -204,15 +204,15 @@ namespace Extensions
             }
         }
 
-        public static bool TryAssignInputAuthority(this NetworkObject obj, NetworkRunner runner, Guid token, bool noAssignment = true)
+        public static bool TryAssignInputAuthority(this NetworkObject no, Guid token, bool noAssignment = true)
         {
-            foreach (var p in runner.ActivePlayers)
+            foreach (var p in no.Runner.ActivePlayers)
             {
-                if (new Guid(runner.GetPlayerConnectionToken(p)) != token) continue;
-                obj.AssignInputAuthority(p);
+                if (new Guid(no.Runner.GetPlayerConnectionToken(p)) != token) continue;
+                no.AssignInputAuthority(p);
                 return true;
             }
-            if (noAssignment) obj.AssignInputAuthority(PlayerRef.None);
+            if (noAssignment) no.AssignInputAuthority(PlayerRef.None);
             return false;
         }
 
