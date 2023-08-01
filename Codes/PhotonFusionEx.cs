@@ -20,8 +20,14 @@ namespace Extensions
         public static float ElapsedTime(this NetworkRunner runner, int tick) => (runner.Tick - tick) * runner.DeltaTime;
         public static float RemainingTime(this NetworkRunner runner, int tick) => -runner.ElapsedTime(tick);
 
-        public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
-        public static bool HasntPass(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
+        public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) > 0;
+        public static bool HasPassing(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
+        public static bool HasAt(this NetworkRunner runner, int tick) => runner.Tick == tick;
+        public static bool HasntPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) <= 0;
+        public static bool HasntPassing(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
+
+        public static bool IsFirstSimurationTick(this NetworkRunner runner) => runner.IsServer ? true : runner.IsResimulation && runner.IsFirstTick;
+
         #endregion
 
         #region TickTimer
@@ -134,20 +140,40 @@ namespace Extensions
 
         #endregion
 
-        #region Other
-        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.MaxConnections;
+        #region PlayerRef
+        
+        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.Config.DefaultPlayers - 1;
         public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
 
-        public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.Simulation.MaxConnections;
+        public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == Host(runner);
         public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
+
         public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.InputAuthority;
         public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.StateAuthority;
         public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.InputAuthority;
         public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.StateAuthority;
 
-        public static PlayerRef Source(this RpcInfo info, NetworkRunner runner) => info.Source.IsNone ? runner.Host() : info.Source;
+        #endregion
+
+        #region NetworkBehaviour, NetworkObject
+
+        public static bool IsStatedByMe(this NetworkObject no) => no.StateAuthority == no.Runner.LocalPlayer;
+        public static bool IsInputtedByMe(this NetworkObject no) => no.InputAuthority == no.Runner.LocalPlayer;
+        public static bool IsStatedByMe(this NetworkBehaviour nb) => nb.Object.StateAuthority == nb.Runner.LocalPlayer;
+        public static bool IsInputtedByMe(this NetworkBehaviour nb) => nb.Object.InputAuthority == nb.Runner.LocalPlayer;
 
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
+
+        #endregion
+
+
+        #region Other
+
+        /// <summary>
+        /// Normally RpcInfo.Source will be None when Host/Server calls RPC.
+        /// This extension method makes the Host's PlayerRef available when the Host calls an RPC.
+        /// </summary>
+        public static PlayerRef Source(this RpcInfo info, NetworkRunner runner) => info.Source.IsNone ? runner.Host() : info.Source;
 
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
         {
