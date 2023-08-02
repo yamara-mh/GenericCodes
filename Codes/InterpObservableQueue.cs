@@ -13,16 +13,18 @@ namespace Yamara
         private NetworkBehaviour nb;
         private readonly Queue<int> ticks = new();
         private readonly Queue<T> arguments = new();
-        private Subject<T> subject = new();
+        private Predicate<T> predicate;
 
+        private Subject<T> subject = new();
         public IObservable<T> Observable => subject;
 
         /// <summary>
         /// Please run this function with Spawned()
         /// </summary>
-        public InterpObservableQueue(NetworkBehaviour networkBehaviour)
+        public InterpObservableQueue(NetworkBehaviour networkBehaviour, Predicate<T> predicate = null)
         {
             nb = networkBehaviour;
+            this.predicate = predicate ??= _ => true;
         }
 
         public void Enqueue(T argument)
@@ -51,13 +53,21 @@ namespace Yamara
             {
                 if (ticks.Peek() > nb.Runner.Tick) break;
                 ticks.Dequeue();
-                subject.OnNext(arguments.Dequeue());
+                var arg = arguments.Dequeue();
+                if (predicate.Invoke(arg)) subject.OnNext(arg);
             }
         }
 
-        public void Clear(NetworkBehaviour networkBehaviour = null)
+        public void ClearQueue()
+        {
+            ticks.Clear();
+            arguments.Clear();
+        }
+
+        public void Clear(NetworkBehaviour networkBehaviour = null, Predicate<T> predicate = null)
         {
             nb = networkBehaviour;
+            this.predicate = predicate ??= _ => true;
             ticks.Clear();
             arguments.Clear();
             subject.Dispose();
