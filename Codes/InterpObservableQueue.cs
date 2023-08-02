@@ -2,6 +2,7 @@ using Fusion;
 using System;
 using System.Collections.Generic;
 using UniRx;
+using UnityEngine;
 
 namespace Yamara
 {
@@ -29,7 +30,11 @@ namespace Yamara
 
         public void Enqueue(T argument)
         {
-            if (nb.Runner.IsResimulation) return;
+            if (nb.Runner.IsResimulation)
+            {
+                Debug.LogWarning("If you Enqueue during IsResimulation, multiple events may be registered and cause problems. Enqueue did not.");
+                return;
+            }
 
             if (nb.Runner.IsServer || nb.InterpolationDataSource == NetworkBehaviour.InterpolationDataSources.Predicted)
             {
@@ -47,8 +52,6 @@ namespace Yamara
         /// </summary>
         public void UpdateQueues()
         {
-            if (nb.Runner.IsResimulation) return;
-
             while (ticks.Count > 0)
             {
                 if (ticks.Peek() > nb.Runner.Tick) break;
