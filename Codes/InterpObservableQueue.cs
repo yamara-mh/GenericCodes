@@ -67,14 +67,14 @@ namespace Yamara
             arguments.Clear();
         }
 
-        public void Clear(NetworkBehaviour networkBehaviour = null, Predicate<T> predicate = null)
+        public void Kill()
         {
-            nb = networkBehaviour;
-            this.predicate = predicate ??= _ => true;
+            nb = null;
+            predicate = null;
             ticks.Clear();
             arguments.Clear();
             subject.Dispose();
-            subject = new();
+            subject = null;
         }
     }
 }
