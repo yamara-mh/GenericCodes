@@ -1,20 +1,21 @@
-using Fusion;
 using System;
 using System.Collections.Generic;
 using UniRx;
 using UnityEngine;
 
-namespace Yamara
+namespace Fusion
 {
     /// <summary>
     /// A class that delay actions to match the Interpolation Target when the Interpolation DataSource is in Snapshots
     /// </summary>
     public class InterpObservableQueue<T>
     {
-        private NetworkBehaviour nb;
+        private NetworkRunner runner;
         private readonly Queue<int> ticks = new();
         private readonly Queue<T> arguments = new();
         private Predicate<T> predicate;
+
+        public bool IsPredicted;
 
         private Subject<T> subject = new();
         public IObservable<T> Observable => subject;
@@ -22,27 +23,28 @@ namespace Yamara
         /// <summary>
         /// Please run this function with Spawned()
         /// </summary>
-        public InterpObservableQueue(NetworkBehaviour networkBehaviour, Predicate<T> predicate = null)
+        public InterpObservableQueue(NetworkRunner runner, bool isPredicted, Predicate<T> predicate = null)
         {
-            nb = networkBehaviour;
+            this.runner = runner;
             this.predicate = predicate ??= _ => true;
+            IsPredicted = isPredicted;
         }
 
         public void Enqueue(T argument)
         {
-            if (nb.Runner.IsResimulation)
+            if (runner.IsResimulation)
             {
                 Debug.LogWarning("If you Enqueue during IsResimulation, multiple events may be registered and cause problems. Enqueue did not.");
                 return;
             }
 
-            if (nb.Runner.IsServer || nb.InterpolationDataSource == NetworkBehaviour.InterpolationDataSources.Predicted)
+            if (runner.IsServer || IsPredicted)
             {
                 subject.OnNext(argument);
                 return;
             }
 
-            int tick = nb.Runner.Tick + nb.Runner.Tick - nb.Runner.Simulation.InterpFrom.Tick;
+            int tick = runner.Tick + runner.Tick - runner.Simulation.InterpFrom.Tick;
             ticks.Enqueue(tick);
             arguments.Enqueue(argument);
         }
@@ -54,7 +56,7 @@ namespace Yamara
         {
             while (ticks.Count > 0)
             {
-                if (ticks.Peek() > nb.Runner.Tick) break;
+                if (ticks.Peek() > runner.Tick) break;
                 ticks.Dequeue();
                 var arg = arguments.Dequeue();
                 if (predicate.Invoke(arg)) subject.OnNext(arg);
@@ -69,7 +71,7 @@ namespace Yamara
 
         public void Kill()
         {
-            nb = null;
+            runner = null;
             predicate = null;
             ticks.Clear();
             arguments.Clear();
