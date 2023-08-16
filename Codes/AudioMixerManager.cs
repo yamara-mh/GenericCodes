@@ -21,10 +21,16 @@ namespace Audio
     public enum AudioMixerParameterEnum
     {
         MasterVolume = 0,
+        
         BgmVolume = 1,
         SeVolume = 2,
         UiVolume = 3,
         VoiceVolume = 4,
+        
+        BgmPitch = 101,
+        SePitch = 102,
+        UiVolume = 103,
+        VoiceVolume = 104,
     }
     public enum AudioMixerSnapshotEnum
     {
@@ -131,9 +137,9 @@ namespace Audio
             }
             else Debug.LogError($"AudioMixer has no {parameter} parameter");
         }
-        public static void SetParameters(float value, float duration, params AudioMixerParameterEnum[] parameters)
+        public static void SetParameters(float value, float duration, Ease ease, params AudioMixerParameterEnum[] parameters)
         {
-            foreach (var parameter in parameters) SetParameter(parameter, value, duration);
+            foreach (var parameter in parameters) SetParameter(parameter, value, duration, ease);
         }
 
         public static float GetVolume(AudioMixerParameterEnum parameter) => DecibelToVolume(GetParameter(parameter));
