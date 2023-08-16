@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,9 +32,19 @@ namespace Audio
     }
     public static class AudioMixerManager
     {
+        private static AudioMixer AudioMixer;
+        private static Dictionary<AudioMixerGroupEnum, AudioMixerGroup> GroupDict;
+        private static Dictionary<AudioMixerSnapshotEnum, AudioMixerSnapshot> SnapshotDict;
+        private static Dictionary<AudioMixerParameterEnum, Tween> ParamTweenDict;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static async void Init()
         {
+            AudioMixer = null;
+            GroupDict = new(Enum.GetValues(typeof(AudioMixerGroupEnum)).Length);
+            SnapshotDict = new(Enum.GetValues(typeof(AudioMixerSnapshotEnum)).Length);
+            ParamTweenDict = new(Enum.GetValues(typeof(AudioMixerParameterEnum)).Length);
+
             var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
             PlayerLoopHelper.Initialize(ref playerLoop);
             AudioMixer = await Addressables.LoadAssetAsync<AudioMixer>(nameof(AudioMixer));
@@ -55,10 +66,9 @@ namespace Audio
                 var snapshot = AudioMixer.FindSnapshot(snapshotEnum.ToString());
                 if (snapshot != null) SnapshotDict.Add(snapshotEnum, snapshot);
             }
+
+            foreach (AudioMixerParameterEnum paramEnum in Enum.GetValues(typeof(AudioMixerParameterEnum))) ParamTweenDict.Add(paramEnum, null);
         }
-        private static AudioMixer AudioMixer = null;
-        private static Dictionary<AudioMixerGroupEnum, AudioMixerGroup> GroupDict = new();
-        private static Dictionary<AudioMixerSnapshotEnum, AudioMixerSnapshot> SnapshotDict = new();
 
         public static AudioMixerGroup GetMixerGroup(AudioMixerGroupEnum groupEnum)
         {
@@ -96,37 +106,42 @@ namespace Audio
             for (int i = 0; i < snapshotEnums.Length; i++) snapshots[i] = SnapshotDict[snapshotEnums[i]];
             AudioMixer.TransitionToSnapshots(snapshots, Enumerable.Range(0, snapshotEnums.Length).Select(_ => weight).ToArray(), timeToreach);
         }
-        public static void TransitionBeTweenSnapshot(AudioMixerSnapshotEnum currentSnapshot, AudioMixerSnapshotEnum nextSnapshot, float timeToreach)
+        public static void TransitionBeTweenSnapshot(AudioMixerSnapshotEnum fromSnapshot, AudioMixerSnapshotEnum toSnapshot, float timeToreach)
         {
             AudioMixer.TransitionToSnapshots(
-                new AudioMixerSnapshot[] { SnapshotDict[currentSnapshot], SnapshotDict[nextSnapshot] },
+                new AudioMixerSnapshot[] { SnapshotDict[fromSnapshot], SnapshotDict[toSnapshot] },
                 new float[] {0f, 1f}, timeToreach);
         }
         #endregion
 
         #region Parameter
-        public static void SetParameter(AudioMixerParameterEnum parameter, float value)
-        {
-            if (AudioMixer.SetFloat(parameter.ToString(), value)) return;
-            Debug.LogError($"AudioMixer has no {parameter} parameter");
-        }
         public static float GetParameter(AudioMixerParameterEnum parameter)
         {
             if (AudioMixer.GetFloat(parameter.ToString(), out var value)) return value;
             Debug.LogError($"AudioMixer has no {parameter} parameter");
             return 0f;
         }
-
-        public static void SetVolume(AudioMixerParameterEnum parameter, float volume)
+        public static void SetParameter(AudioMixerParameterEnum parameter, float value, float duration = 0f)
         {
-            if (AudioMixer.SetFloat(parameter.ToString(), VolumeToDecibel(volume))) return;
-            Debug.LogError($"AudioMixer has no {parameter} parameter");
+            ParamTweenDict[parameter]?.Kill();
+            if (duration <= 0f && AudioMixer.SetFloat(parameter.ToString(), value)) return;
+            else if (AudioMixer.GetFloat(parameter.ToString(), out var fromValue))
+            {
+                ParamTweenDict[parameter] = DOTween.To(() => fromValue, v => AudioMixer.SetFloat(parameter.ToString(), v), value, duration);
+            }
+            else Debug.LogError($"AudioMixer has no {parameter} parameter");
         }
-        public static float GetVolume(AudioMixerParameterEnum parameter)
+        public static void SetParameters(float value, float duration, params AudioMixerParameterEnum[] parameters)
         {
-            if (AudioMixer.GetFloat(parameter.ToString(), out var value)) return DecibelToVolume(value);
-            Debug.LogError($"AudioMixer has no {parameter} parameter");
-            return 0f;
+            foreach (var parameter in parameters) SetParameter(parameter, value, duration);
+        }
+
+        public static float GetVolume(AudioMixerParameterEnum parameter) => DecibelToVolume(GetParameter(parameter));
+        public static void SetVolume(AudioMixerParameterEnum parameter, float volume, float duration = 0f)
+            => SetParameter(parameter, VolumeToDecibel(volume), duration);
+        public static void SetVolumes(float value, float duration, params AudioMixerParameterEnum[] parameters)
+        {
+            foreach (var parameter in parameters) SetVolume(parameter, value, duration);
         }
 
         private static float VolumeToDecibel(float volume) => Mathf.Clamp(20f * Mathf.Log10(Mathf.Clamp(volume, 0f, 1f)), -80f, 0f);
