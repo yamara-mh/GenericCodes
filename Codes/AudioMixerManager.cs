@@ -21,16 +21,12 @@ namespace Audio
     public enum AudioMixerParameterEnum
     {
         MasterVolume = 0,
-        
         BgmVolume = 1,
         SeVolume = 2,
         UiVolume = 3,
         VoiceVolume = 4,
-        
         BgmPitch = 101,
         SePitch = 102,
-        UiVolume = 103,
-        VoiceVolume = 104,
     }
     public enum AudioMixerSnapshotEnum
     {
@@ -131,9 +127,9 @@ namespace Audio
         {
             ParamTweenDict[parameter]?.Kill();
             if (duration <= 0f && AudioMixer.SetFloat(parameter.ToString(), value)) return;
-            else if (AudioMixer.GetFloat(parameter.ToString(), out var fromValue))
+            else if (AudioMixer.GetFloat(parameter.ToString(), out _))
             {
-                ParamTweenDict[parameter] = DOTween.To(() => fromValue, v => AudioMixer.SetFloat(parameter.ToString(), v), value, duration).SetEase(ease);
+                ParamTweenDict[parameter] = AudioMixer.DOSetFloat(parameter.ToString(), value, duration).SetEase(ease);
             }
             else Debug.LogError($"AudioMixer has no {parameter} parameter");
         }
