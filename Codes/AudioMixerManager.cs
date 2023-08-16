@@ -121,13 +121,13 @@ namespace Audio
             Debug.LogError($"AudioMixer has no {parameter} parameter");
             return 0f;
         }
-        public static void SetParameter(AudioMixerParameterEnum parameter, float value, float duration = 0f)
+        public static void SetParameter(AudioMixerParameterEnum parameter, float value, float duration = 0f, Ease ease = Ease.Unset)
         {
             ParamTweenDict[parameter]?.Kill();
             if (duration <= 0f && AudioMixer.SetFloat(parameter.ToString(), value)) return;
             else if (AudioMixer.GetFloat(parameter.ToString(), out var fromValue))
             {
-                ParamTweenDict[parameter] = DOTween.To(() => fromValue, v => AudioMixer.SetFloat(parameter.ToString(), v), value, duration);
+                ParamTweenDict[parameter] = DOTween.To(() => fromValue, v => AudioMixer.SetFloat(parameter.ToString(), v), value, duration).SetEase(ease);
             }
             else Debug.LogError($"AudioMixer has no {parameter} parameter");
         }
@@ -137,11 +137,11 @@ namespace Audio
         }
 
         public static float GetVolume(AudioMixerParameterEnum parameter) => DecibelToVolume(GetParameter(parameter));
-        public static void SetVolume(AudioMixerParameterEnum parameter, float volume, float duration = 0f)
-            => SetParameter(parameter, VolumeToDecibel(volume), duration);
-        public static void SetVolumes(float value, float duration, params AudioMixerParameterEnum[] parameters)
+        public static void SetVolume(AudioMixerParameterEnum parameter, float volume, float duration = 0f, Ease ease = Ease.Unset)
+            => SetParameter(parameter, VolumeToDecibel(volume), duration, ease);
+        public static void SetVolumes(float value, float duration, Ease ease, params AudioMixerParameterEnum[] parameters)
         {
-            foreach (var parameter in parameters) SetVolume(parameter, value, duration);
+            foreach (var parameter in parameters) SetVolume(parameter, value, duration, ease);
         }
 
         private static float VolumeToDecibel(float volume) => Mathf.Clamp(20f * Mathf.Log10(Mathf.Clamp(volume, 0f, 1f)), -80f, 0f);
