@@ -32,7 +32,7 @@ namespace Audio
     public static class AudioMixerManager
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        public static async void Init()
+        private static async void Init()
         {
             var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
             PlayerLoopHelper.Initialize(ref playerLoop);
