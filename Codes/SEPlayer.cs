@@ -220,7 +220,7 @@ namespace Audio
         }
     }
 
-    public static class SEManagerEx
+    public static class SEPlayerEx
     {
         public static AudioSource Play(this AudioClip clip, int priority = 0, Action<(AudioSource original, AudioSource instance)> ended = null, float delay = 0f)
         {
