@@ -157,10 +157,10 @@ namespace Audio
             return sourceData.Source;
         }
 
-        public static void Stop(bool audioSources = true, bool oneShotAll = true, params AudioMixerGroupEnum[] oneShotModes)
+        public static void Stop(bool audioSources = true, bool oneShotAll = true, params AudioMixerGroupEnum[] oneShotGroups)
         {
             if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.Stop();
-            foreach (var mode in oneShotModes) _oneShotsSources[mode].Stop();
+            foreach (var mode in oneShotGroups) _oneShotsSources[mode].Stop();
             if (!audioSources) return;
 
             foreach (var item in _sourcesData)
@@ -176,19 +176,19 @@ namespace Audio
         {
             return _sourcesData.Select(d => d.Source);
         }
-        public static void Pause(bool audioSources = true, bool oneShotAll = true, params AudioMixerGroupEnum[] oneShotModes)
+        public static void Pause(bool audioSources = true, bool oneShotAll = true, params AudioMixerGroupEnum[] oneShotGroups)
         {
             if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.Pause();
-            foreach (var mode in oneShotModes) _oneShotsSources[mode].Pause();
+            foreach (var mode in oneShotGroups) _oneShotsSources[mode].Pause();
             if (!audioSources) return;
 
             IsPausing = true;
             foreach (var item in _sourcesData) item.Source.Pause();
         }
-        public static void UnPause(bool audioSources = true, bool oneShotAll = true, params AudioMixerGroupEnum[] oneShotModes)
+        public static void UnPause(bool audioSources = true, bool oneShotAll = true, params AudioMixerGroupEnum[] oneShotGroups)
         {
             if (oneShotAll) foreach (var sources in _oneShotsSources.Values) sources.UnPause();
-            foreach (var mode in oneShotModes) _oneShotsSources[mode].UnPause();
+            foreach (var mode in oneShotGroups) _oneShotsSources[mode].UnPause();
             if (!audioSources) return;
 
             IsPausing = false;
