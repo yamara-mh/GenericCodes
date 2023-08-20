@@ -223,4 +223,16 @@ namespace Extensions
     {
         public static NetworkRunner Runner => NetworkRunner.Instances.FirstOrDefault();
     }
+
+    public static class PhotonFusionMathUtil
+    {
+        public static byte Float01ToByte(this float v, int unit = 100) => (byte)Math.Round((v + 1d) * unit);
+        public static float ByteToFloat01(this byte v, int unit = 100) => (float)v / unit;
+
+        public static byte SignFloat01ToByte(this float v, int unit = 100) => (byte)Math.Round((v + 1d) * unit);
+        public static float ByteToSignFloat01(this byte v, int unit = 100) => (float)(v - unit) / unit;
+
+        public static ushort AngleToUshort(this float v, int unit = 100) => (ushort)Math.Round(Mathf.Repeat(v, 360f) * unit);
+        public static float UshortToAngle(this ushort v, int unit = 100) => (float)v / unit;
+    }
 }
