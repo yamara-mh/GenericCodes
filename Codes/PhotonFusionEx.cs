@@ -26,7 +26,10 @@ namespace Extensions
         public static bool HasntPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) <= 0;
         public static bool HasntPassing(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
 
-        public static bool IsFirstSimurationTick(this NetworkRunner runner) => runner.IsServer ? true : runner.IsResimulation && runner.IsFirstTick;
+        public static double SimulationRenderTime(this NetworkRunner runner, int offsetTick = 0)
+            => runner.Simulation.StatePrevious.Tick - offsetTick + runner.Simulation.StateAlpha * runner.Simulation.DeltaTime;
+        public static double InterpolationRenderTime(this NetworkRunner runner, int offsetTick = 0)
+            => (runner.IsServer ? runner.Tick : runner.Simulation.InterpFrom.Tick) - offsetTick + runner.Simulation.InterpAlpha * runner.Simulation.DeltaTime;
 
         #endregion
 
