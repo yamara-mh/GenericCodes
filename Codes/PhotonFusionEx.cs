@@ -30,6 +30,8 @@ namespace Extensions
             => runner.Simulation.StatePrevious.Tick - offsetTick + runner.Simulation.StateAlpha * runner.Simulation.DeltaTime;
         public static double InterpolationRenderTime(this NetworkRunner runner, int offsetTick = 0)
             => (runner.IsServer ? runner.Tick : runner.Simulation.InterpFrom.Tick) - offsetTick + runner.Simulation.InterpAlpha * runner.Simulation.DeltaTime;
+        public static float InterpolationSecond(this NetworkRunner runner)
+            => runner.IsServer ? 0f : (runner.Simulation.InterpTo.Tick - runner.Simulation.InterpFrom.Tick) * runner.DeltaTime;
 
         #endregion
 
