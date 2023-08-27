@@ -9,6 +9,7 @@ namespace Audio
         [SerializeField] private AudioSource audioSource;
         [SerializeField] private bool findAndAttachAudioListenerOnStart = true;
         [SerializeField] private bool autoUpdate = true;
+        [SerializeField] private bool isCylinder = true;
         [SerializeField] private bool alighYaxisToListener = true;
         [SerializeField] private bool loccyScaleXToHalfRadius = true;
 
@@ -64,7 +65,7 @@ namespace Audio
         public void UpdateAudioSource()
         {
             var vector = listenerTransform.position - centerTransfrom.position;
-            vector.y = 0f;
+            if (isCylinder) vector.y = 0f;
 
             Vector3 direction;
             if (vector.sqrMagnitude == 0f) direction = Vector3.zero;
