@@ -26,7 +26,6 @@ namespace Audio
 
         private void LateUpdate()
         {
-            if (loccyScaleXToHalfRadius) Radius = transform.lossyScale.x / 2f;
             if (autoUpdate) UpdateAudioSource();
         }
 
@@ -71,6 +70,7 @@ namespace Audio
             if (vector.sqrMagnitude == 0f) direction = Vector3.zero;
             else direction = vector.normalized;
 
+            if (loccyScaleXToHalfRadius) Radius = transform.lossyScale.x / 2f;
             var audioPos = centerTransfrom.position + direction * Radius;
             if (alighYaxisToListener) audioPos.y = listenerTransform.position.y;
             audioSourceTransform.position = audioPos;
