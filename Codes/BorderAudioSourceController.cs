@@ -6,7 +6,7 @@ namespace Audio
     {
         public enum BorderEnum
         {
-            Shpere = 0,
+            Sphere = 0,
             Cylinder = 1,
         }
 
