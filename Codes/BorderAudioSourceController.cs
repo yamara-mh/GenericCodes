@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Audio
@@ -10,25 +12,28 @@ namespace Audio
             Cylinder = 1,
         }
 
-        [SerializeField] public float Radius = 0.5f;
+        [Header("Border GameObject")]
         [SerializeField] private Transform centerTransfrom;
-        [SerializeField] private AudioSource audioSource;
-        [SerializeField] private bool findAndAttachAudioListenerOnStart = true;
-        [SerializeField] private bool autoUpdate = true;
         [SerializeField] private BorderEnum borderType = BorderEnum.Cylinder;
-        [SerializeField] private bool alighYaxisToListener = true;
-        [SerializeField] private bool loccyScaleXToRadius = true;
-        [SerializeField] private float loccyScaleRate = 0.5f;
+        [SerializeField, Tooltip("Radius when Scale is 1")]
+        private float defaultRadius = 0.5f;
 
-        public AudioListener Listener { get; private set; }
+        [Header("AudioSource")]
+        [SerializeField] private AudioSource childAudioSource;
+        [SerializeField] private bool autoUpdate = true;
+        [SerializeField] private bool alignYPosToListener = true;
 
-        private Transform listenerTransform;
+        [Header("AudioListener")]
+        [SerializeField] private Transform listenerTransform;
+        [SerializeField, Tooltip("Find an AudioListener and attach it to listenerTransfrom on Start()")]
+        private bool findListenerOnStart = true;
+
         private Transform audioSourceTransform;
 
         private void Start()
         {
-            audioSourceTransform = audioSource.transform;
-            if (findAndAttachAudioListenerOnStart) FindAndAttachAudioListener();
+            audioSourceTransform = childAudioSource.transform;
+            if (findListenerOnStart) SetListenerTransform(FindAudioListenerInScene().transform);
         }
 
         private void LateUpdate()
@@ -36,38 +41,27 @@ namespace Audio
             if (autoUpdate) UpdateAudioSource();
         }
 
-        public bool AttachAudioListenerByTag(string tag)
+        /// <summary>
+        /// Find the AudioListener in the scene.
+        /// If there are multiple candidates, activeInHierarchy will give priority to valid candidates.
+        /// </summary>
+        public AudioListener FindAudioListenerInScene()
         {
-            if (GameObject.FindGameObjectWithTag(tag).TryGetComponent<AudioListener>(out var listener))
+            var listeners = new List<AudioListener>();
+            foreach (GameObject o in FindObjectsOfType(typeof(GameObject)))
             {
-                SetListener(listener);
-                return true;
+                if (o.TryGetComponent<AudioListener>(out var l)) listeners.Add(l);
             }
-            return false;
-        }
-        public bool FindAndAttachAudioListener()
-        {
-            foreach (GameObject obj in FindObjectsOfType(typeof(GameObject)))
+            if (listeners.Count == 0)
             {
-                if (obj.activeInHierarchy && obj.TryGetComponent<AudioListener>(out var listener))
-                {
-                    SetListener(listener);
-                    return true;
-                }
+                Debug.LogError("AudioListener not found");
+                return null;
             }
-            return false;
+            return listeners.OrderBy(l => l.gameObject.activeInHierarchy).FirstOrDefault();
         }
-        public void SetListener(AudioListener listener)
-        {
-            Listener = listener;
-            listenerTransform = Listener.transform;
-        }
+        public void SetListenerTransform(Transform listenerTransform) => this.listenerTransform = listenerTransform;
+        public void SetDefaultRadius(float radius) => this.defaultRadius = radius;
 
-        public void UpdateAudioSource(float? radius = null)
-        {
-            if (radius != null) Radius = radius.Value;
-            UpdateAudioSource();
-        }
         public void UpdateAudioSource()
         {
             var vector = listenerTransform.position - centerTransfrom.position;
@@ -77,16 +71,20 @@ namespace Audio
             if (vector.sqrMagnitude == 0f) direction = Vector3.zero;
             else direction = vector.normalized;
 
-            if (loccyScaleXToRadius) Radius = transform.lossyScale.x * loccyScaleRate;
-            var audioPos = centerTransfrom.position + direction * Radius;
-            if (alighYaxisToListener) audioPos.y = listenerTransform.position.y;
+            var audioPos = centerTransfrom.position + direction * defaultRadius * transform.lossyScale.x;
+            if (alignYPosToListener) audioPos.y = listenerTransform.position.y;
             audioSourceTransform.position = audioPos;
         }
 #if UNITY_EDITOR
         private void OnValidate()
         {
             centerTransfrom ??= transform;
-            audioSource ??= GetComponentInChildren<AudioSource>();
+            childAudioSource ??= GetComponentInChildren<AudioSource>();
+
+            if (defaultRadius == 0f && centerTransfrom.TryGetComponent(out Renderer r))
+            {
+                defaultRadius = r.bounds.size.x / 2f / centerTransfrom.localScale.x;
+            }
         }
 #endif
     }
