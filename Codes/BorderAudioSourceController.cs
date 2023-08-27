@@ -17,7 +17,8 @@ namespace Audio
         [SerializeField] private bool autoUpdate = true;
         [SerializeField] private BorderEnum borderType = BorderEnum.Cylinder;
         [SerializeField] private bool alighYaxisToListener = true;
-        [SerializeField] private bool loccyScaleXToHalfRadius = true;
+        [SerializeField] private bool loccyScaleXToRadius = true;
+        [SerializeField] private float loccyScaleRate = 0.5f;
 
         public AudioListener Listener { get; private set; }
 
@@ -76,7 +77,7 @@ namespace Audio
             if (vector.sqrMagnitude == 0f) direction = Vector3.zero;
             else direction = vector.normalized;
 
-            if (loccyScaleXToHalfRadius) Radius = transform.lossyScale.x / 2f;
+            if (loccyScaleXToRadius) Radius = transform.lossyScale.x * loccyScaleRate;
             var audioPos = centerTransfrom.position + direction * Radius;
             if (alighYaxisToListener) audioPos.y = listenerTransform.position.y;
             audioSourceTransform.position = audioPos;
