@@ -1,14 +1,15 @@
+using Cysharp.Threading.Tasks;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.UI;
-using Cysharp.Threading.Tasks;
+using UnityEngine.Localization.Components;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.UI;
 #if UNITY_EDITOR
-using UnityEditor.SceneManagement;
-using UnityEngine.SceneManagement;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
+using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 #endif
 
 namespace Yamara
@@ -129,6 +130,8 @@ namespace Yamara
             if (Image != null && Image.name != null) return;
 
             Image ??= GetComponent<Image>();
+            loadOnStart = TryGetComponent<LocalizeSpriteEvent>(out var _) == false;
+
             if (HasImageSprite() == false) return;
 
             editorSprite = Image.sprite;
