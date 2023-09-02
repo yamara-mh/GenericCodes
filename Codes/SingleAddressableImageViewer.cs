@@ -162,9 +162,9 @@ namespace Yamara
 
             var settings = AddressableAssetSettingsDefaultObject.GetSettings(false);
             var entry = settings.FindAssetEntry(guid);
-            var group = settings.groups.FirstOrDefault(g => g.name == GroupName) ?? settings.DefaultGroup;
             if (entry == null)
             {
+                var group = settings.groups.FirstOrDefault(g => g.name == GroupName) ?? settings.DefaultGroup;
                 entry = settings.CreateOrMoveEntry(guid, group);
                 // Simplify Addressable Name
                 // entry.SetAddress(Path.GetFileNameWithoutExtension(path));
