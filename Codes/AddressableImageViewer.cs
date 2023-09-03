@@ -7,7 +7,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 #if UNITY_EDITOR
 using UnityEditor;
-using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets;あ
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 #endif
