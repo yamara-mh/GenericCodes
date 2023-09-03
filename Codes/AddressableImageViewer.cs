@@ -7,7 +7,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 #if UNITY_EDITOR
 using UnityEditor;
-using UnityEditor.AddressableAssets;あ
+using UnityEditor.AddressableAssets;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 #endif
@@ -16,7 +16,7 @@ namespace Yamara
 {
     [ExecuteAlways]
     [RequireComponent(typeof(Image))]
-    public class SingleAddressableImageViewer : MonoBehaviour
+    public class AddressableImageViewer : MonoBehaviour
     {
         [SerializeField] private bool loadOnStart = true;
         [SerializeField] public Image Image;
@@ -109,7 +109,7 @@ namespace Yamara
 
             TryClearSprite();
             TryGetAndSetupImage();
-            TryReflrectToImage();
+            TryReflectToImage();
         }
         private void Update()
         {
@@ -137,7 +137,7 @@ namespace Yamara
             editorSprite = Image.sprite;
             UpdateSpriteRef();
         }
-        private void TryReflrectToImage()
+        private void TryReflectToImage()
         {
             if (Image == null || SpriteRef == null) return;
 
