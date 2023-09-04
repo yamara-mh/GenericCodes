@@ -1,130 +1,73 @@
-using Cysharp.Threading.Tasks;
+#if UNITY_EDITOR
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.Localization.Components;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
-#if UNITY_EDITOR
 using System.IO;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
-#endif
 
 namespace Yamara
 {
+    /// <summary>
+    /// This is a component that attaches an Addressable Sprite to an Image only while editing a Scene or Prefab
+    /// </summary>
     [ExecuteAlways]
     [RequireComponent(typeof(Image))]
-    public class AddressableImageViewer : MonoBehaviour
+    public class AddressableImageViewerEditor : MonoBehaviour
     {
-        [SerializeField] private bool loadOnStart = true;
         [SerializeField] public Image Image;
         [SerializeField] public AssetReferenceSprite SpriteRef;
-
-        private AsyncOperationHandle<Sprite> _handle = default;
-        private bool _loading = false;
-
-        private async void Start()
-        {
-            if (Application.isPlaying && loadOnStart) await Load();
-
-#if UNITY_EDITOR
-            if (Application.isPlaying == false) StartEditor();
-#endif
-        }
-        private void OnDestroy()
-        {
-            if (Application.isPlaying) Release();
-
-#if UNITY_EDITOR
-            if (Application.isPlaying == false) DestroyEditor();
-#endif
-        }
-
-        public async UniTask<bool> Load()
-        {
-            if (SpriteRef == null || SpriteRef.RuntimeKeyIsValid() == false) return false;
-            if (_handle.IsValid())
-            {
-                if (_handle.Status == AsyncOperationStatus.Failed) return false;
-                if (_handle.Status == AsyncOperationStatus.Succeeded)
-                {
-                    Image.sprite = _handle.Result;
-                    return true;
-                }
-            }
-
-            _loading = true;
-            if (_loading) _handle = SpriteRef.LoadAssetAsync();
-            await _handle;
-            _loading = false;
-
-            if (_handle.Status != AsyncOperationStatus.Succeeded) return false;
-            Image.sprite = _handle.Result;
-            return true;
-        }
-
-        public void Release()
-        {
-            if (SpriteRef != null && SpriteRef.IsValid()) SpriteRef.ReleaseAsset();
-        }
-
-        #region Editor
-
-#if UNITY_EDITOR
-
-        private const string GroupName = null;
-        private const string Label = null;
-
-        [Header(nameof(Editor))]
         [SerializeField] private bool clearSpriteButton;
-        [Header("Don't Touch")]
-        [SerializeField] private Sprite editorSprite = null;
-        [SerializeField] private bool editorSaving = false;
 
-        private bool HasImageSprite => Image != null && Image.sprite != null && Image.sprite.name != null;
-        private bool HasSpriteRef => SpriteRef != null && SpriteRef.RuntimeKeyIsValid();
+        [Header("Don't Edit")]
+        [SerializeField] private Sprite editorSprite = null;
+        [SerializeField] private string editorGuid, editorSubName;
+        [SerializeField] private bool editorIsNotReflected = false;
+
+
         public bool IsClean => Image.sprite == null && editorSprite == null;
 
-        private void StartEditor()
+
+        private void Start()
         {
-            EditorApplication.hierarchyChanged += OnHierarchyChanged;
+            if (Application.isPlaying) return;
+
             PrefabStage.prefabSaving += OnPrefabSaving;
             PrefabStage.prefabSaved += OnPrefabSaved;
             EditorSceneManager.sceneSaving += OnSceneSaving;
             EditorSceneManager.sceneSaved += OnSceneSaved;
-
-            if (editorSaving) OnSaved();
         }
-        private void DestroyEditor()
+        private void OnDestroy()
         {
-            EditorApplication.hierarchyChanged -= OnHierarchyChanged;
+            if (Application.isPlaying) return;
+
             PrefabStage.prefabSaving -= OnPrefabSaving;
-            PrefabStage.prefabSaved -= OnPrefabSaving;
+            PrefabStage.prefabSaved -= OnPrefabSaved;
             EditorSceneManager.sceneSaving -= OnSceneSaving;
             EditorSceneManager.sceneSaved -= OnSceneSaved;
         }
 
         private void OnValidate()
         {
-            if (editorSaving) return;
+            // MEMO : Preventing value from changing in OnValidate() during PrefabStage.prefabSaving.
+            if (editorIsNotReflected) return;
+
             TryClearSprite();
             TryGetAndSetupImage();
-            TryReflectToImage();
         }
 
         private void Update()
         {
             if (Application.isPlaying) return;
-            if (editorSaving) OnSaved();
-            TryReflectToSpriteRef();
-        }
 
-        private void OnHierarchyChanged()
-        {
-            if (Application.isPlaying) return;
+            // MEMO : When create a Prefab from a GameObject on a Scene,
+            // the original GameObject is deleted and a Prefab Instance is generated.
+            // The Instance reflects the Prefab value after Start(), so it is attached using Update().
+            if (editorIsNotReflected) OnSaved();
+
             TryReflectToImage();
         }
 
@@ -135,6 +78,8 @@ namespace Yamara
             if (Image != null) Image.sprite = null;
             SpriteRef = null;
             editorSprite = null;
+            editorGuid = null;
+            editorSubName = null;
         }
 
         private void TryGetAndSetupImage()
@@ -142,56 +87,54 @@ namespace Yamara
             if (Image != null && Image.name != null) return;
 
             Image ??= GetComponent<Image>();
-            loadOnStart = TryGetComponent<LocalizeSpriteEvent>(out var _) == false;
+            if (Image == null || Image.sprite == null || Image.sprite.name == null) return;
 
-            if (HasImageSprite == false) return;
-
+            CreateSpriteRef(Image.sprite);
             editorSprite = Image.sprite;
-            UpdateSpriteRef();
+            editorGuid = SpriteRef.AssetGUID;
+            editorSubName = SpriteRef.SubObjectName;
         }
-        private void TryReflectToImage()
+        private void CreateSpriteRef(Sprite sprite)
         {
-            if (Image == null || SpriteRef == null) return;
-
-            if (editorSprite == SpriteRef.editorAsset)
-            {
-                Image.sprite = editorSprite;
-                return;
-            }
-            var spriteRefSprite = GetSpriteRefSprite();
-            if (spriteRefSprite == null || spriteRefSprite == Image.sprite) return;
-
-            editorSprite = spriteRefSprite;
-            Image.sprite = editorSprite;
-        }
-        private void TryReflectToSpriteRef()
-        {
-            if (HasImageSprite == false || Image.sprite == editorSprite) return;
-
-            editorSprite = Image.sprite;
-            UpdateSpriteRef();
-        }
-
-
-        private void UpdateSpriteRef()
-        {
-            var path = AssetDatabase.GetAssetPath(Image.sprite);
+            var path = AssetDatabase.GetAssetPath(sprite);
             var guid = AssetDatabase.AssetPathToGUID(path);
 
             var settings = AddressableAssetSettingsDefaultObject.GetSettings(false);
             var entry = settings.FindAssetEntry(guid);
             if (entry == null)
             {
-                var group = settings.groups.FirstOrDefault(g => g.name == GroupName) ?? settings.DefaultGroup;
-                entry = settings.CreateOrMoveEntry(guid, group);
+                entry = settings.CreateOrMoveEntry(guid, settings.DefaultGroup);
                 // Simplify Addressable Name
                 // entry.SetAddress(Path.GetFileNameWithoutExtension(path));
                 // Label
-                // entry.SetLabel(Label, true, true);
+                // entry.SetLabel(nameof(Sprite), true, true);
             }
 
             SpriteRef = new AssetReferenceSprite(entry.guid);
-            SpriteRef.SetEditorSubObject(editorSprite);
+            SpriteRef.SetEditorSubObject(sprite);
+        }
+
+        private void TryReflectToImage()
+        {
+            if (Image == null) return;
+
+            if (SpriteRef == null || SpriteRef.AssetGUID == null)
+            {
+                Image.sprite = null;
+                return;
+            }
+            if (editorGuid == SpriteRef.AssetGUID && editorSubName == SpriteRef.SubObjectName)
+            {
+                Image.sprite = editorSprite;
+                return;
+            }
+            var spriteRefSprite = GetSpriteRefSprite();
+            if (spriteRefSprite == null) return;
+
+            editorSprite = spriteRefSprite;
+            editorGuid = SpriteRef.AssetGUID;
+            editorSubName = SpriteRef.SubObjectName;
+            Image.sprite = editorSprite;
         }
 
         private Sprite GetSpriteRefSprite()
@@ -199,11 +142,12 @@ namespace Yamara
             var hasSubSpriteRef = SpriteRef.SubObjectName != null && SpriteRef.SubObjectName.Length > 0;
             if (hasSubSpriteRef)
             {
-                var path = AssetDatabase.GetAssetPath(SpriteRef.editorAsset);
+                var path = AssetDatabase.GUIDToAssetPath(SpriteRef.AssetGUID);
                 var sprites = AssetDatabase.LoadAllAssetsAtPath(path).OfType<Sprite>();
                 return sprites.FirstOrDefault(s => s.name == SpriteRef.SubObjectName);
             }
-            return SpriteRef.editorAsset as Sprite;
+            var path2 = AssetDatabase.GUIDToAssetPath(SpriteRef.AssetGUID);
+            return AssetDatabase.LoadAssetAtPath(path2, typeof(Sprite)) as Sprite;
         }
 
 
@@ -211,27 +155,40 @@ namespace Yamara
         private void OnSceneSaving(Scene scene, string path) => OnSaving();
         public void OnSaving()
         {
-            editorSaving = true;
             Image.sprite = null;
+
             editorSprite = null;
+            editorGuid = null;
+            editorSubName = null;
+            editorIsNotReflected = true;
+
+            if (this != null && PrefabUtility.GetNearestPrefabInstanceRoot(this) == null) return;
+
+            var serializedImage = new SerializedObject(Image);
+            PrefabUtility.RevertPropertyOverride(serializedImage.FindProperty("m_Sprite"), InteractionMode.AutomatedAction);
+
+            var serialized = new SerializedObject(this);
+            PrefabUtility.RevertPropertyOverride(serialized.FindProperty(nameof(editorSprite)), InteractionMode.AutomatedAction);
+            PrefabUtility.RevertPropertyOverride(serialized.FindProperty(nameof(editorGuid)), InteractionMode.AutomatedAction);
+            PrefabUtility.RevertPropertyOverride(serialized.FindProperty(nameof(editorSubName)), InteractionMode.AutomatedAction);
+            PrefabUtility.RevertPropertyOverride(serialized.FindProperty(nameof(editorIsNotReflected)), InteractionMode.AutomatedAction);
         }
 
         private void OnPrefabSaved(GameObject obj) => OnSaved();
         private void OnSceneSaved(Scene scene) => OnSaved();
         public void OnSaved()
         {
-            editorSaving = false;
+            editorIsNotReflected = false;
             var spriteRefSprite = GetSpriteRefSprite();
             if (Image != null || spriteRefSprite != null)
             {
                 editorSprite = spriteRefSprite;
+                editorGuid = SpriteRef.AssetGUID;
+                editorSubName = SpriteRef.SubObjectName;
                 Image.sprite = spriteRefSprite;
             }
         }
-#endif
-        #endregion
     }
-#if UNITY_EDITOR
     public class AddressableImageViewerImportEditor : AssetPostprocessor
     {
         private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
@@ -242,7 +199,7 @@ namespace Yamara
                 var instance = PrefabUtility.LoadPrefabContents(path);
 
                 var hasAddressableImageViewer = false;
-                var viewers = instance.GetComponentsInChildren<AddressableImageViewer>(true);
+                var viewers = instance.GetComponentsInChildren<AddressableImageViewerEditor>(true);
                 foreach (var viewer in viewers)
                 {
                     if (viewer.IsClean) continue;
@@ -257,5 +214,5 @@ namespace Yamara
             }
         }
     }
-#endif
 }
+#endif
