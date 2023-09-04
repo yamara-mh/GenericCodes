@@ -214,8 +214,6 @@ namespace Yamara
             editorSaving = true;
             Image.sprite = null;
             editorSprite = null;
-            EditorUtility.SetDirty(Image);
-            EditorUtility.SetDirty(this);
         }
 
         private void OnPrefabSaved(GameObject obj) => OnSaved();
