@@ -194,6 +194,23 @@ namespace Extensions
             return v;
         }
 
+        /// <summary>
+        /// The implementation of switching processing depending on the elapsed time becomes simpler.
+        /// </summary>
+        public static void UpdateFlow(this NetworkRunner runner, int startTick, int[] durationTicks, params Action<int>[] actions)
+        {
+            var elapsedTime = runner.Tick - startTick;
+            for (int i = 0; i < actions.Length; i++)
+            {
+                if (elapsedTime < durationTicks[i])
+                {
+                    actions[i]?.Invoke(elapsedTime);
+                    return;
+                }
+                elapsedTime -= durationTicks[i];
+            }
+        }
+
         public static void Disconnects(this NetworkRunner runner, IEnumerable<PlayerRef> targetPlayers)
         {
             foreach (var player in targetPlayers)
