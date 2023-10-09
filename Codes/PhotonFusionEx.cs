@@ -22,7 +22,7 @@ namespace Extensions
 
         public static bool IsAt(this NetworkRunner runner, int tick) => runner.Tick == tick;
         public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) > 0;
-        public static bool HasntPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
+        public static bool HasntPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) <= 0;
         public static bool HasReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
         public static bool HasntReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
 
