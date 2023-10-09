@@ -20,11 +20,11 @@ namespace Extensions
         public static float ElapsedTime(this NetworkRunner runner, int tick) => (runner.Tick - tick) * runner.DeltaTime;
         public static float RemainingTime(this NetworkRunner runner, int tick) => -runner.ElapsedTime(tick);
 
+        public static bool IsAt(this NetworkRunner runner, int tick) => runner.Tick == tick;
         public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) > 0;
-        public static bool HasPassing(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
-        public static bool HasAt(this NetworkRunner runner, int tick) => runner.Tick == tick;
-        public static bool HasntPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) <= 0;
-        public static bool HasntPassing(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
+        public static bool HasntPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
+        public static bool HasReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
+        public static bool HasntReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
 
         public static double SimulationRenderTime(this NetworkRunner runner, int offsetTick = 0)
             => runner.Simulation.StatePrevious.Tick - offsetTick + runner.Simulation.StateAlpha * runner.Simulation.DeltaTime;
