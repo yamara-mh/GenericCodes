@@ -215,17 +215,7 @@ namespace Extensions
 
         public static void Disconnects(this NetworkRunner runner, IEnumerable<PlayerRef> targetPlayers)
         {
-            foreach (var player in targetPlayers)
-            {
-                if (runner.ActivePlayers.Contains(player)) runner.Disconnect(player);
-            }
-        }
-        public static void DisconnectsToNoResponse(this NetworkRunner runner, IEnumerable<PlayerRef> responsePlayers)
-        {
-            foreach (var player in runner.ActivePlayers)
-            {
-                if (!responsePlayers.Contains(player)) runner.Disconnect(player);
-            }
+            foreach (var p in targetPlayers) if (runner.ActivePlayers.Contains(p)) runner.Disconnect(p);
         }
 
         public static bool TryAssignInputAuthority(this NetworkObject no, Guid token, bool noAssignment = true)
