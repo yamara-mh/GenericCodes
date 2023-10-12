@@ -1,3 +1,4 @@
+using Codice.Client.Common;
 using Fusion;
 using System;
 using System.Collections.Generic;
@@ -200,6 +201,7 @@ namespace Extensions
         public static void UpdateFlow(this NetworkRunner runner, int startTick, int[] durationTicks, params Action<int>[] actions)
         {
             var elapsedTime = runner.Tick - startTick;
+
             for (int i = 0; i < actions.Length; i++)
             {
                 if (elapsedTime < durationTicks[i])
@@ -218,11 +220,11 @@ namespace Extensions
                 if (runner.ActivePlayers.Contains(player)) runner.Disconnect(player);
             }
         }
-        public static void DisconnectsToNoResponse(this NetworkRunner runner, IEnumerable<PlayerRef> responcedPlayers)
+        public static void DisconnectsToNoResponse(this NetworkRunner runner, IEnumerable<PlayerRef> responsePlayers)
         {
             foreach (var player in runner.ActivePlayers)
             {
-                if (!responcedPlayers.Contains(player)) runner.Disconnect(player);
+                if (!responsePlayers.Contains(player)) runner.Disconnect(player);
             }
         }
 
