@@ -235,7 +235,17 @@ namespace Extensions
 
     public static class PhotonFusionUtil
     {
-        public static NetworkRunner Runner => NetworkRunner.Instances.FirstOrDefault();
+        public static NetworkRunner Runner => NetworkRunner.Instances.FirstOrDefault(r => r != null);
+
+        private static Dictionary<NetworkRunner, int> JoinTickDict;
+        public static void SetJoinTick(this NetworkRunner runner)
+        {
+            JoinTickDict ??= new();
+            JoinTickDict.Add(runner, runner.Tick);
+        }
+        public static int JoinTick(this NetworkRunner runner) => JoinTickDict.TryGetValue(runner, out var tick) ? tick : -1;
+        public static int JoinElapsedTick(this NetworkRunner runner) => JoinTickDict.TryGetValue(runner, out var tick) ? runner.Tick - tick : -1;
+        public static void RemoveJoinTick(this NetworkRunner runner) => JoinTickDict.Remove(runner);
     }
 
     public static class PhotonFusionMathUtil
