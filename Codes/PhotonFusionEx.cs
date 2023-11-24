@@ -70,6 +70,10 @@ namespace Generic
 
         #region Network Array, LinkedList, Dictionary
 
+        public static void ForEach<T>(this NetworkArray<T> array, Action<T> action)
+        {
+            foreach (var item in array) action.Invoke(item);
+        }
         public static void ForLoop<T>(this NetworkArray<T> array, Action<int, T> action)
         {
             for (int i = 0; i < array.Length; i++) action.Invoke(i, array[i]);
