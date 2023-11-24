@@ -1,12 +1,13 @@
-using Codice.Client.Common;
+using Cysharp.Threading.Tasks;
 using Fusion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UniRx;
 using UnityEngine;
 
-namespace Extensions
+namespace Generic
 {
     public static class PhotonFusionEx
     {
@@ -69,6 +70,14 @@ namespace Extensions
 
         #region Network Array, LinkedList, Dictionary
 
+        public static void ForLoop<T>(this NetworkArray<T> array, Action<int, T> action)
+        {
+            for (int i = 0; i < array.Length; i++) action.Invoke(i, array[i]);
+        }
+        public static void ForLoop<T>(this NetworkArray<T> array, NetworkArray<T> oldArray, Action<int, T, T> action)
+        {
+            for (int i = 0; i < array.Length; i++) action.Invoke(i, oldArray[i], array[i]);
+        }
         public static void Replace<T>(this NetworkArray<T> array, Func<T, bool> conditions, Func<T, T> value)
         {
             for (int i = 0; i < array.Length; i++) if (conditions.Invoke(array.Get(i))) array.Set(i, value.Invoke(array.Get(i)));
@@ -168,6 +177,7 @@ namespace Extensions
         public static bool IsStatedByMe(this NetworkBehaviour nb) => nb.Object.StateAuthority == nb.Runner.LocalPlayer;
         public static bool IsInputtedByMe(this NetworkBehaviour nb) => nb.Object.InputAuthority == nb.Runner.LocalPlayer;
 
+        public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Properties["seed"];
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
 
         #endregion
@@ -195,22 +205,38 @@ namespace Extensions
             return v;
         }
 
-        /// <summary>
-        /// The implementation of switching processing depending on the elapsed time becomes simpler.
-        /// </summary>
-        public static void UpdateFlow(this NetworkRunner runner, int startTick, int[] durationTicks, params Action<int>[] actions)
+        public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour 
+            => runner.GetAllBehaviours<T>().FirstOrDefault();
+        public static bool FindBehaviour<T>(this NetworkRunner runner, out T behaviour) where T : SimulationBehaviour
         {
-            var elapsedTime = runner.Tick - startTick;
-
-            for (int i = 0; i < actions.Length; i++)
+            behaviour = runner.GetAllBehaviours<T>().FirstOrDefault();
+            return behaviour != null;
+        }
+        public static async UniTask<T> FindBehaviourAsync<T>(this NetworkRunner runner, CancellationToken token) where T : SimulationBehaviour
+        {
+            while (token.IsCancellationRequested == false)
             {
-                if (elapsedTime < durationTicks[i])
-                {
-                    actions[i]?.Invoke(elapsedTime);
-                    return;
-                }
-                elapsedTime -= durationTicks[i];
+                if (runner.FindBehaviour<T>(out var behaviour)) return behaviour;
+                await UniTask.DelayFrame(1);
             }
+            return default;
+        }
+
+        public static T FindBehaviour<T>(this NetworkRunner runner, PlayerRef player) where T : SimulationBehaviour
+            => runner.GetAllBehaviours<T>().FirstOrDefault(b => b.Object.InputAuthority == player);
+        public static bool FindBehaviour<T>(this NetworkRunner runner, PlayerRef player, out T behaviour) where T : SimulationBehaviour
+        {
+            behaviour = runner.FindBehaviour<T>(player);
+            return behaviour != null;
+        }
+        public static async UniTask<T> FindBehaviourAsync<T>(this NetworkRunner runner, PlayerRef player, CancellationToken token) where T : SimulationBehaviour
+        {
+            while (token.IsCancellationRequested == false)
+            {
+                if (runner.FindBehaviour<T>(player, out var behaviour)) return behaviour;
+                await UniTask.DelayFrame(1);
+            }
+            return default;
         }
 
         public static void Disconnects(this NetworkRunner runner, IEnumerable<PlayerRef> targetPlayers)
@@ -218,45 +244,92 @@ namespace Extensions
             foreach (var p in targetPlayers) if (runner.ActivePlayers.Contains(p)) runner.Disconnect(p);
         }
 
-        public static bool TryAssignInputAuthority(this NetworkObject no, Guid token, bool noAssignment = true)
+        public static bool TryAssignInputAuthority(this NetworkObject no, Guid objectToken, bool noAssignment = true)
         {
             foreach (var p in no.Runner.ActivePlayers)
             {
-                if (new Guid(no.Runner.GetPlayerConnectionToken(p)) != token) continue;
+                if (new Guid(no.Runner.GetPlayerConnectionToken(p)) != objectToken) continue;
                 no.AssignInputAuthority(p);
                 return true;
             }
             if (noAssignment) no.AssignInputAuthority(PlayerRef.None);
             return false;
         }
-
         #endregion
     }
 
     public static class PhotonFusionUtil
     {
         public static NetworkRunner Runner => NetworkRunner.Instances.FirstOrDefault(r => r != null);
-
-        private static Dictionary<NetworkRunner, int> JoinTickDict;
-        public static void SetJoinTick(this NetworkRunner runner)
+        public static bool TryGetRunner(out NetworkRunner runner)
         {
-            JoinTickDict ??= new();
-            JoinTickDict.Add(runner, runner.Tick);
+            runner = Runner;
+            return runner != null;
         }
-        public static int JoinTick(this NetworkRunner runner) => JoinTickDict.TryGetValue(runner, out var tick) ? tick : -1;
-        public static int JoinElapsedTick(this NetworkRunner runner) => JoinTickDict.TryGetValue(runner, out var tick) ? runner.Tick - tick : -1;
-        public static void RemoveJoinTick(this NetworkRunner runner) => JoinTickDict.Remove(runner);
-    }
 
-    public static class PhotonFusionMathUtil
-    {
-        public static byte Float01ToByte(this float v, int unit = 100) => (byte)Math.Round((v + 1d) * unit);
-        public static float ByteToFloat01(this byte v, int unit = 100) => (float)v / unit;
+        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
+        public static void FiringActionsWithStartTick(int elapsedTick, Action<int> action, params int[] timingTick)
+        {
+            for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) action?.Invoke(i);
+        }
+        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
+        public static void FiringActionsWithStartTick(int elapsedTick, int[] timingTick, params Action<int>[] actions)
+        {
+            for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) actions[i]?.Invoke(i);
+        }
+        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
+        public static void FiringActionsWithStartTick(NetworkRunner runner, int startTick, int[] timingTicks, params Action<int>[] actions)
+            => FiringActionsWithStartTick(runner.Tick - startTick, timingTicks, actions);
+        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
+        public static void FiringActionsWithStartTick(NetworkRunner runner, int startTick, Action<int> action, params int[] timingTicks)
+            => FiringActionsWithStartTick(runner.Tick - startTick, action, timingTicks);
+        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
+        public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int durationTick, int[] timingTicks, params Action<int>[] actions)
+            => FiringActionsWithStartTick(runner.Tick - endTick + durationTick, timingTicks, actions);
+        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
+        public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int lengthToEndTick, Action<int> action, params int[] timingTicks)
+            => FiringActionsWithStartTick(runner.Tick - endTick + lengthToEndTick, action, timingTicks);
 
-        public static byte SignFloat01ToByte(this float v, int unit = 100) => (byte)Math.Round((v + 1d) * unit);
-        public static float ByteToSignFloat01(this byte v, int unit = 100) => (float)(v - unit) / unit;
 
-        public static ushort AngleToUshort(this float v, int unit = 100) => (ushort)Math.Round(Mathf.Repeat(v, 360f) * unit);
-        public static float UshortToAngle(this ushort v, int unit = 100) => (float)v / unit;
+        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
+        public static void UpdateFlowByStart(int elapsedTick, int[] durationTicks, params Action<int>[] actions)
+        {
+            if (elapsedTick >= durationTicks.Last()) return;
+            for (int i = 0; i < durationTicks.Length; i++)
+            {
+                if (elapsedTick >= durationTicks[i]) continue;
+                actions[i]?.Invoke(i == 0 ? elapsedTick : elapsedTick - durationTicks[i - 1]);
+                return;
+            }
+        }
+        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
+        public static void UpdateFlowByStart(int elapsedTick, Action<(int index, int elapsedTick)> action, params int[] durationTicks)
+        {
+            if (elapsedTick >= durationTicks.Last()) return;
+            for (int i = 0; i < durationTicks.Length; i++)
+            {
+                if (elapsedTick >= durationTicks[i]) continue;
+                action?.Invoke((i, i == 0 ? elapsedTick : elapsedTick - durationTicks[i - 1]));
+                return;
+            }
+        }
+        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
+        public static void UpdateFlowByStart(NetworkRunner runner, int startTick, int[] durationTicks, params Action<int>[] actions)
+            => UpdateFlowByStart(runner.Tick - startTick, durationTicks, actions);
+        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
+        public static void UpdateFlowByStart(NetworkRunner runner, int startTick, Action<(int index, int elapsedTick)> action, params int[] durationTicks)
+            => UpdateFlowByStart(runner.Tick - startTick, action, durationTicks);
+        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
+        public static void UpdateFlowByComplete(NetworkRunner runner, int completeTick, int[] durationTicks, params Action<int>[] actions)
+        {
+            if (runner.Tick > completeTick) return;
+            UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), durationTicks, actions);
+        }
+        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
+        public static void UpdateFlowByComplete(NetworkRunner runner, int completeTick, Action<(int index, int elapsedTick)> action, params int[] durationTicks)
+        {
+            if (runner.Tick > completeTick) return;
+            UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), action, durationTicks);
+        }
     }
 }
