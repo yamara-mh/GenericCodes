@@ -74,6 +74,8 @@ namespace Generic
         {
             foreach (var item in array) action.Invoke(item);
         }
+        public static void ForEach<T>(this NetworkArray<T> array, NetworkArray<T> oldArray, Action<T, T> action)
+            => ForLoop(array, oldArray, (i, prev, current) => action.Invoke(prev, current));
         public static void ForLoop<T>(this NetworkArray<T> array, Action<int, T> action)
         {
             for (int i = 0; i < array.Length; i++) action.Invoke(i, array[i]);
