@@ -185,6 +185,7 @@ namespace Generic
 
         public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Properties["seed"];
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
+        public static uint GetSeed(this NetworkBehaviour nb, int tick) => (uint)unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
 
         #endregion
 
@@ -273,6 +274,16 @@ namespace Generic
             return runner != null;
         }
 
+        public static IObservable<NetworkRunner> OnCreatedRunner()
+            => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null)
+                .Publish().RefCount();
+        public static IObservable<NetworkRunner> OnBeganRunner()
+            => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null && r.Tick > 0)
+                .Publish().RefCount();
+        public static IObservable<NetworkRunner> OnShotdownedRunner()
+            => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null && r.IsShutdown)
+                .Publish().RefCount();
+
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
         public static void FiringActionsWithStartTick(int elapsedTick, Action<int> action, params int[] timingTick)
         {
@@ -292,6 +303,8 @@ namespace Generic
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
         public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int durationTick, int[] timingTicks, params Action<int>[] actions)
             => FiringActionsWithStartTick(runner.Tick - endTick + durationTick, timingTicks, actions);
+        public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int[] timingTicks, params Action<int>[] actions)
+            => FiringActionsWithStartTick(runner.Tick - endTick + timingTicks[timingTicks.Length - 1], timingTicks, actions);
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
         public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int lengthToEndTick, Action<int> action, params int[] timingTicks)
             => FiringActionsWithStartTick(runner.Tick - endTick + lengthToEndTick, action, timingTicks);
