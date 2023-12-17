@@ -196,7 +196,11 @@ namespace Generic
 
         #region PlayerRef
 
+#if FUSION2
+        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : PlayerRef.FromIndex(0);
+#else
         public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.Config.DefaultPlayers - 1;
+#endif
         public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
 
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == Host(runner);
@@ -207,7 +211,7 @@ namespace Generic
         public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.InputAuthority;
         public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.StateAuthority;
 
-        #endregion
+#endregion
 
         #region NetworkBehaviour, NetworkObject
 
