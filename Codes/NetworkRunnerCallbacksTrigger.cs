@@ -27,12 +27,17 @@ namespace UniRx.Triggers
         public IObservable<(NetworkRunner runner, Dictionary<string, object> data)> OnCustomAuthenticationResponse => onCustomAuthenticationResponse ??= new Subject<(NetworkRunner runner, Dictionary<string, object> data)>();
         void INetworkRunnerCallbacks.OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data)
           => onCustomAuthenticationResponse?.OnNext((runner, data));
-
+#if FUSION2
+        Subject<(NetworkRunner runner, NetDisconnectReason reason)> onDisconnectedFromServer;
+        public IObservable<(NetworkRunner runner, NetDisconnectReason reason)> OnDisconnectedFromServer => onDisconnectedFromServer ??= new Subject<(NetworkRunner runner, NetDisconnectReason reason)>();
+        void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+            => onDisconnectedFromServer?.OnNext((runner, reason));
+#else
         Subject<NetworkRunner> onDisconnectedFromServer;
         public IObservable<NetworkRunner> OnDisconnectedFromServer => onDisconnectedFromServer ??= new Subject<NetworkRunner>();
         void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner)
             => onDisconnectedFromServer?.OnNext(runner);
-
+#endif
         Subject<(NetworkRunner runner, HostMigrationToken hostMigrationToken)> onHostMigration;
         public IObservable<(NetworkRunner runner, HostMigrationToken hostMigrationToken)> OnHostMigration => onHostMigration ??= new Subject<(NetworkRunner runner, HostMigrationToken hostMigrationToken)>();
         void INetworkRunnerCallbacks.OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken)
@@ -57,12 +62,17 @@ namespace UniRx.Triggers
         public IObservable<(NetworkRunner runner, PlayerRef player)> OnPlayerLeft => onPlayerLeft ??= new Subject<(NetworkRunner runner, PlayerRef player)>();
         void INetworkRunnerCallbacks.OnPlayerLeft(NetworkRunner runner, PlayerRef player)
           => onPlayerLeft?.OnNext((runner, player));
-
+#if FUSION2
+        Subject<(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)> onReliableDataReceived;
+        public IObservable<(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)> OnReliableDataReceived => onReliableDataReceived ??= new Subject<(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)>();
+        void INetworkRunnerCallbacks.OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)
+            => onReliableDataReceived?.OnNext((runner, player, key, data));
+#else
         Subject<(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data)> onReliableDataReceived;
         public IObservable<(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data)> OnReliableDataReceived => onReliableDataReceived ??= new Subject<(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data)>();
         void INetworkRunnerCallbacks.OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data)
           => onReliableDataReceived?.OnNext((runner, player, data));
-
+#endif
         Subject<NetworkRunner> onSceneLoadDone;
         public IObservable<NetworkRunner> OnSceneLoadDone => onSceneLoadDone ??= new Subject<NetworkRunner>();
         void INetworkRunnerCallbacks.OnSceneLoadDone(NetworkRunner runner)
@@ -87,5 +97,21 @@ namespace UniRx.Triggers
         public IObservable<(NetworkRunner runner, SimulationMessagePtr message)> OnUserSimulationMessage => onUserSimulationMessage ??= new Subject<(NetworkRunner runner, SimulationMessagePtr message)>();
         void INetworkRunnerCallbacks.OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message)
           => onUserSimulationMessage?.OnNext((runner, message));
+#if FUSION2
+        Subject<(NetworkRunner runner, NetworkObject obj, PlayerRef player)> onObjectExitAOI;
+        public IObservable<(NetworkRunner runner, NetworkObject obj, PlayerRef player)> OnObjectExitAOI => onObjectExitAOI ??= new Subject<(NetworkRunner runner, NetworkObject obj, PlayerRef player)>();
+        void INetworkRunnerCallbacks.OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player)
+            => onObjectExitAOI?.OnNext((runner, obj, player));
+
+        Subject<(NetworkRunner runner, NetworkObject obj, PlayerRef player)> onObjectEnterAOI;
+        public IObservable<(NetworkRunner runner, NetworkObject obj, PlayerRef player)> OnObjectEnterAOI => onObjectEnterAOI ??= new Subject<(NetworkRunner runner, NetworkObject obj, PlayerRef player)>();
+        void INetworkRunnerCallbacks.OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player)
+            => onObjectEnterAOI?.OnNext((runner, obj, player));
+
+        Subject<(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)> onReliableDataProgress;
+        public IObservable<(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)> OnReliableDataProgress => onReliableDataProgress ??= new Subject<(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)>();
+        void INetworkRunnerCallbacks.OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)
+            => onReliableDataProgress?.OnNext((runner, player, key, progress));
+#endif
     }
 }
