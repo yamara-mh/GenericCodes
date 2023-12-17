@@ -39,13 +39,19 @@ namespace UniRx.Triggers
             if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, Dictionary<string, object> data)>();
             return GetOrAddComponent(runner).OnCustomAuthenticationResponse;
         }
-
+#if FUSION2
+        public static IObservable<(NetworkRunner runner, NetDisconnectReason reason)> OnDisconnectedFromServer(this NetworkRunner runner)
+        {
+            if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, NetDisconnectReason reason)>();
+            return GetOrAddComponent(runner).OnDisconnectedFromServer;
+        }
+#else
         public static IObservable<NetworkRunner> OnDisconnectedFromServer(this NetworkRunner runner)
         {
             if (runner == null || runner.gameObject == null) return Observable.Empty<NetworkRunner>();
             return GetOrAddComponent(runner).OnDisconnectedFromServer;
         }
-
+#endif
         public static IObservable<(NetworkRunner runner, HostMigrationToken hostMigrationToken)> OnHostMigration(this NetworkRunner runner)
         {
             if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, HostMigrationToken hostMigrationToken)>();
@@ -76,11 +82,19 @@ namespace UniRx.Triggers
             return GetOrAddComponent(runner).OnPlayerLeft;
         }
 
+#if FUSION2
+        public static IObservable<(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)> OnReliableDataReceived(this NetworkRunner runner)
+        {
+            if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)>();
+            return GetOrAddComponent(runner).OnReliableDataReceived;
+        }
+#else
         public static IObservable<(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data)> OnReliableDataReceived(this NetworkRunner runner)
         {
             if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data)>();
             return GetOrAddComponent(runner).OnReliableDataReceived;
         }
+#endif
 
         public static IObservable<NetworkRunner> OnSceneLoadDone(this NetworkRunner runner)
         {
@@ -111,5 +125,22 @@ namespace UniRx.Triggers
             if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, SimulationMessagePtr message)>();
             return GetOrAddComponent(runner).OnUserSimulationMessage;
         }
+#if FUSION2
+        public static IObservable<(NetworkRunner runner, NetworkObject obj, PlayerRef player)> OnObjectExitAOI(this NetworkRunner runner)
+        {
+            if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, NetworkObject obj, PlayerRef player)>();
+            return GetOrAddComponent(runner).OnObjectExitAOI;
+        }
+        public static IObservable<(NetworkRunner runner, NetworkObject obj, PlayerRef player)> OnObjectEnterAOI(this NetworkRunner runner)
+        {
+            if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, NetworkObject obj, PlayerRef player)>();
+            return GetOrAddComponent(runner).OnObjectEnterAOI;
+        }
+        public static IObservable<(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)> OnReliableDataProgress(this NetworkRunner runner)
+        {
+            if (runner == null || runner.gameObject == null) return Observable.Empty<(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)>();
+            return GetOrAddComponent(runner).OnReliableDataProgress;
+        }
+#endif
     }
 }
