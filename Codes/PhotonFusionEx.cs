@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using UniRx;
 using UnityEngine;
+using static Fusion.NetworkBehaviour;
 
 namespace Generic
 {
@@ -13,8 +14,9 @@ namespace Generic
     {
         #region Tick
 
-        public static int ToTick(this int second, NetworkRunner runner) => (int)(second / runner.DeltaTime);
-        public static int ToTick(this float second, NetworkRunner runner) => (int)(second / runner.DeltaTime);
+        public static int ToTick(this int second, NetworkRunner runner) => Mathf.CeilToInt(second / runner.DeltaTime);
+        public static int ToTick(this float second, NetworkRunner runner) => Mathf.CeilToInt(second / runner.DeltaTime);
+        public static int ToTick(this double second, NetworkRunner runner) => Mathf.CeilToInt((float)second / runner.DeltaTime);
         public static float ToSecond(this int tick, NetworkRunner runner) => tick * runner.DeltaTime;
 
         public static int GetTickAfter(this NetworkRunner runner, float second) => runner.Tick + (int)(second / runner.DeltaTime);
@@ -24,18 +26,20 @@ namespace Generic
 
         public static bool IsAt(this NetworkRunner runner, int tick) => runner.Tick == tick;
         public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) > 0;
-        public static bool HasntPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) <= 0;
+        public static bool HasNotPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) <= 0;
         public static bool HasReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
-        public static bool HasntReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
+        public static bool HasNotReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
 
+#if !FUSION2
         public static double SimulationRenderTime(this NetworkRunner runner, int offsetTick = 0)
             => runner.Simulation.StatePrevious.Tick - offsetTick + runner.Simulation.StateAlpha * runner.Simulation.DeltaTime;
         public static double InterpolationRenderTime(this NetworkRunner runner, int offsetTick = 0)
             => (runner.IsServer ? runner.Tick : runner.Simulation.InterpFrom.Tick) - offsetTick + runner.Simulation.InterpAlpha * runner.Simulation.DeltaTime;
         public static float InterpolationSecond(this NetworkRunner runner)
             => runner.IsServer ? 0f : (runner.Simulation.InterpTo.Tick - runner.Simulation.InterpFrom.Tick) * runner.DeltaTime;
+#endif
 
-        #endregion
+#endregion
 
         #region TickTimer
 
@@ -121,6 +125,34 @@ namespace Generic
         }
         public static void ReplaceAll<T>(this NetworkArray<T> array, T value) => ReplaceAll(array, v => value);
 
+#if FUSION2
+        public static void OnValueChanged<T>(this NetworkArray<T> currentArray, NetworkArrayReadOnly<T> prevArray, Action<T> action) where T : IEquatable<T>
+        {
+            for (int i = 0; i < prevArray.Length; i++)
+            {
+                if (!currentArray[i].Equals(prevArray[i])) action?.Invoke(currentArray[i]);
+            }
+        }
+        public static void OnValueChanged<T>(this NetworkArray<T> currentArray, NetworkArrayReadOnly<T> prevArray, Action<int, T, T> action) where T : IEquatable<T>
+        {
+            for (int i = 0; i < prevArray.Length; i++)
+            {
+                if (!currentArray[i].Equals(prevArray[i])) action?.Invoke(i, prevArray[i], currentArray[i]);
+            }
+        }
+#else
+        public static void OnValueChanged<Class, T>(this NetworkArray<T> currentArray, Changed<Class> changed, Func<Class, NetworkArray<T>> loadArray, Action<T> action)
+            where Class : NetworkBehaviour
+            where T : IEquatable<T>
+        {
+            var prevArray = new NetworkArray<T>();
+            changed.LoadOld(old => prevArray = loadArray.Invoke(old));
+
+            for (int i = 0; i < prevArray.Length; i++)
+            {
+                if (!currentArray[i].Equals(prevArray[i])) action?.Invoke(currentArray[i]);
+            }
+        }
         public static void OnValueChanged<Class, T>(this NetworkArray<T> currentArray, Changed<Class> changed, Func<Class, NetworkArray<T>> loadArray, Action<int, T, T> action)
             where Class : NetworkBehaviour
             where T : IEquatable<T>
@@ -133,10 +165,11 @@ namespace Generic
                 if (!currentArray[i].Equals(prevArray[i])) action?.Invoke(i, prevArray[i], currentArray[i]);
             }
         }
+#endif
 
         public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array) => netArray.CopyFrom(array, 0, array.Length - 1);
 
-        #endregion
+#endregion
 
         #region Network LinkedList, Dictionary
 
@@ -185,7 +218,7 @@ namespace Generic
 
         public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Properties["seed"];
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
-        public static uint GetSeed(this NetworkBehaviour nb, int tick) => (uint)unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
+        public static int GetSeed(this NetworkBehaviour nb, int tick) => unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
 
         #endregion
 
@@ -198,6 +231,39 @@ namespace Generic
         /// </summary>
         public static PlayerRef Source(this RpcInfo info, NetworkRunner runner) => info.Source.IsNone ? runner.Host() : info.Source;
 
+#if FUSION2
+        public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, string n1, Action a1) where NB : NetworkBehaviour
+            => cd.OnValueChanged(nb, (n1, a1));
+        public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, string n1, Action a1, string n2, Action a2) where NB : NetworkBehaviour
+            => cd.OnValueChanged(nb, (n1, a1), (n2, a2));
+        public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, string n1, Action a1, string n2, Action a2, string n3, Action a3) where NB : NetworkBehaviour
+            => cd.OnValueChanged(nb, (n1, a1), (n2, a2), (n3, a3));
+        public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, string n1, Action a1, string n2, Action a2, string n3, Action a3, string n4, Action a4) where NB : NetworkBehaviour
+            => cd.OnValueChanged(nb, (n1, a1), (n2, a2), (n3, a3), (n4, a4));
+        public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, params (string name, Action action)[] action) where NB : NetworkBehaviour
+        {
+            foreach (var change in cd.DetectChanges(nb))
+            {
+                foreach (var item in action) if (item.name == change) item.action?.Invoke();
+            }
+        }
+
+        public static void OnValueChanged<NB, T>(this ChangeDetector cd, NB nb, params (string name, Action<T, T> action)[] action) where NB : NetworkBehaviour where T : unmanaged
+        {
+            foreach (var change in cd.DetectChanges(nb, out var prevBuffer, out var currentBuffer))
+            {
+                foreach (var item in action)
+                {
+                    if (item.name == change)
+                    {
+                        var reader = GetPropertyReader<T>(typeof(T), item.name);
+                        var (prev, current) = reader.Read(prevBuffer, currentBuffer);
+                        item.action?.Invoke(prev, current);
+                    }
+                }
+            }
+        }
+#else
         public static void LoadOld<T>(this Changed<T> changed, Action<T> old) where T : NetworkBehaviour
         {
             changed.LoadOld();
@@ -211,6 +277,7 @@ namespace Generic
             changed.LoadNew();
             return v;
         }
+#endif
 
         public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour 
             => runner.GetAllBehaviours<T>().FirstOrDefault();
@@ -262,7 +329,7 @@ namespace Generic
             if (noAssignment) no.AssignInputAuthority(PlayerRef.None);
             return false;
         }
-        #endregion
+#endregion
     }
 
     public static class PhotonFusionUtil
@@ -280,7 +347,7 @@ namespace Generic
         public static IObservable<NetworkRunner> OnBeganRunner()
             => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null && r.Tick > 0)
                 .Publish().RefCount();
-        public static IObservable<NetworkRunner> OnShotdownedRunner()
+        public static IObservable<NetworkRunner> OnShotDownedRunner()
             => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null && r.IsShutdown)
                 .Publish().RefCount();
 
