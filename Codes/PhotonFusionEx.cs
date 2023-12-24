@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using UniRx;
+using UniRx.Triggers;
 using UnityEngine;
 using static Fusion.NetworkBehaviour;
 
@@ -169,10 +170,6 @@ namespace Generic
 
         public static void CopyFrom<T>(this NetworkArray<T> netArray, T[] array) => netArray.CopyFrom(array, 0, array.Length - 1);
 
-#endregion
-
-        #region Network LinkedList, Dictionary
-
         public static void CopyFrom<T>(this NetworkLinkedList<T> netList, List<T> list)
         {
             if (list.Count == netList.Count)
@@ -194,25 +191,6 @@ namespace Generic
 
         #endregion
 
-        #region PlayerRef
-
-#if FUSION2
-        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : PlayerRef.FromIndex(0);
-#else
-        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.Config.DefaultPlayers - 1;
-#endif
-        public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
-
-        public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == Host(runner);
-        public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
-
-        public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.InputAuthority;
-        public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.StateAuthority;
-        public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.InputAuthority;
-        public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.StateAuthority;
-
-#endregion
-
         #region NetworkBehaviour, NetworkObject
 
         public static bool IsStatedByMe(this NetworkObject no) => no.StateAuthority == no.Runner.LocalPlayer;
@@ -220,20 +198,43 @@ namespace Generic
         public static bool IsStatedByMe(this NetworkBehaviour nb) => nb.Object.StateAuthority == nb.Runner.LocalPlayer;
         public static bool IsInputtedByMe(this NetworkBehaviour nb) => nb.Object.InputAuthority == nb.Runner.LocalPlayer;
 
-        public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Properties["seed"];
-        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["seed"] + nb.Id.Behaviour);
+        public static int GetSeed(this NetworkRunner runner) => runner.GetCustomProperty("s");
+        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.GetCustomProperty("s") + nb.Id.Behaviour);
         public static int GetSeed(this NetworkBehaviour nb, int tick) => unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
 
-        #endregion
+        public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour
+           => runner.GetAllBehaviours<T>().FirstOrDefault();
+        public static bool FindBehaviour<T>(this NetworkRunner runner, out T behaviour) where T : SimulationBehaviour
+        {
+            behaviour = runner.GetAllBehaviours<T>().FirstOrDefault();
+            return behaviour != null;
+        }
+        public static async UniTask<T> FindBehaviourAsync<T>(this NetworkRunner runner, CancellationToken token) where T : SimulationBehaviour
+        {
+            while (token.IsCancellationRequested == false)
+            {
+                if (runner.FindBehaviour<T>(out var behaviour)) return behaviour;
+                await UniTask.DelayFrame(1);
+            }
+            return default;
+        }
 
-
-        #region Other
-
-        /// <summary>
-        /// Normally RpcInfo.Source will be None when Host/Server calls RPC.
-        /// This extension method makes the Host's PlayerRef available when the Host calls an RPC.
-        /// </summary>
-        public static PlayerRef Source(this RpcInfo info, NetworkRunner runner) => info.Source.IsNone ? runner.Host() : info.Source;
+        public static T FindBehaviour<T>(this NetworkRunner runner, PlayerRef player) where T : SimulationBehaviour
+            => runner.GetAllBehaviours<T>().FirstOrDefault(b => b.Object.InputAuthority == player);
+        public static bool FindBehaviour<T>(this NetworkRunner runner, PlayerRef player, out T behaviour) where T : SimulationBehaviour
+        {
+            behaviour = runner.FindBehaviour<T>(player);
+            return behaviour != null;
+        }
+        public static async UniTask<T> FindBehaviourAsync<T>(this NetworkRunner runner, PlayerRef player, CancellationToken token) where T : SimulationBehaviour
+        {
+            while (token.IsCancellationRequested == false)
+            {
+                if (runner.FindBehaviour<T>(player, out var behaviour)) return behaviour;
+                await UniTask.DelayFrame(1);
+            }
+            return default;
+        }
 
 #if FUSION2
         public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, string n1, Action a1) where NB : NetworkBehaviour
@@ -283,39 +284,34 @@ namespace Generic
         }
 #endif
 
-        public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour 
-            => runner.GetAllBehaviours<T>().FirstOrDefault();
-        public static bool FindBehaviour<T>(this NetworkRunner runner, out T behaviour) where T : SimulationBehaviour
-        {
-            behaviour = runner.GetAllBehaviours<T>().FirstOrDefault();
-            return behaviour != null;
-        }
-        public static async UniTask<T> FindBehaviourAsync<T>(this NetworkRunner runner, CancellationToken token) where T : SimulationBehaviour
-        {
-            while (token.IsCancellationRequested == false)
-            {
-                if (runner.FindBehaviour<T>(out var behaviour)) return behaviour;
-                await UniTask.DelayFrame(1);
-            }
-            return default;
-        }
+        #endregion
 
-        public static T FindBehaviour<T>(this NetworkRunner runner, PlayerRef player) where T : SimulationBehaviour
-            => runner.GetAllBehaviours<T>().FirstOrDefault(b => b.Object.InputAuthority == player);
-        public static bool FindBehaviour<T>(this NetworkRunner runner, PlayerRef player, out T behaviour) where T : SimulationBehaviour
-        {
-            behaviour = runner.FindBehaviour<T>(player);
-            return behaviour != null;
-        }
-        public static async UniTask<T> FindBehaviourAsync<T>(this NetworkRunner runner, PlayerRef player, CancellationToken token) where T : SimulationBehaviour
-        {
-            while (token.IsCancellationRequested == false)
-            {
-                if (runner.FindBehaviour<T>(player, out var behaviour)) return behaviour;
-                await UniTask.DelayFrame(1);
-            }
-            return default;
-        }
+        #region PlayerRef
+
+#if FUSION2
+        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : PlayerRef.FromIndex(0);
+#else
+        public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.Config.DefaultPlayers - 1;
+#endif
+        public static bool IsServerMode(this NetworkRunner runner) => runner.GameMode == GameMode.Server;
+
+        public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == Host(runner);
+        public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
+
+        public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.InputAuthority;
+        public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.StateAuthority;
+        public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.InputAuthority;
+        public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.StateAuthority;
+
+        /// <summary>
+        /// Normally RpcInfo.Source will be None when Host/Server calls RPC.
+        /// This extension method makes the Host's PlayerRef available when the Host calls an RPC.
+        /// </summary>
+        public static PlayerRef Source(this RpcInfo info, NetworkRunner runner) => info.Source.IsNone ? runner.Host() : info.Source;
+
+        #endregion
+
+        #region Other
 
         public static void Disconnects(this NetworkRunner runner, IEnumerable<PlayerRef> targetPlayers)
         {
@@ -333,7 +329,8 @@ namespace Generic
             if (noAssignment) no.AssignInputAuthority(PlayerRef.None);
             return false;
         }
-#endregion
+
+        #endregion
     }
 
     public static class PhotonFusionUtil
@@ -343,6 +340,45 @@ namespace Generic
         {
             runner = Runner;
             return runner != null;
+        }
+
+        public static Dictionary<NetworkRunner, Dictionary<string, SessionProperty>> SingleSessionProperties;
+        public static void SetupSingleCustomProperties(this NetworkRunner runner, Dictionary<string, SessionProperty> props)
+        {
+            SingleSessionProperties ??= new();
+            SingleSessionProperties.Add(runner, new());
+            runner.OnDestroyAsObservable().Subscribe(_ => SingleSessionProperties.Remove(runner));
+
+            foreach (var pair in props)
+            {
+                if (SingleSessionProperties[runner].ContainsKey(pair.Key)) SingleSessionProperties[runner][pair.Key] = pair.Value;
+                else SingleSessionProperties[runner].Add(pair.Key, pair.Value);
+            }
+        }
+        public static IReadOnlyDictionary<string, SessionProperty> GetCustomProperties(this NetworkRunner runner)
+        {
+            if (runner.GameMode == GameMode.Single) return SingleSessionProperties[runner]; 
+            else return runner.SessionInfo.Properties;
+        }
+        public static SessionProperty GetCustomProperty(this NetworkRunner runner, string key)
+        {
+            if (runner.GameMode == GameMode.Single) return GetCustomProperties(runner)[key];
+            return runner.SessionInfo.Properties[key];
+        }
+        public static bool UpdateCustomProperty(this NetworkRunner runner, string key, SessionProperty prop) => UpdateCustomProperties(runner, new() { { key, prop } });
+        public static bool UpdateCustomProperties(this NetworkRunner runner, Dictionary<string, SessionProperty> props)
+        {
+            if (runner.GameMode == GameMode.Single)
+            {
+                var isUpdateAll = true;
+                foreach (var prop in props)
+                {
+                    if (SingleSessionProperties[runner].ContainsKey(prop.Key)) SingleSessionProperties[runner][prop.Key] = prop.Value;
+                    else isUpdateAll = false;
+                }
+                return isUpdateAll;
+            }
+            return runner.SessionInfo.UpdateCustomProperties(props);
         }
 
         public static IObservable<NetworkRunner> OnCreatedRunner()
