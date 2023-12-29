@@ -198,8 +198,8 @@ namespace Generic
         public static bool IsStatedByMe(this NetworkBehaviour nb) => nb.Object.StateAuthority == nb.Runner.LocalPlayer;
         public static bool IsInputtedByMe(this NetworkBehaviour nb) => nb.Object.InputAuthority == nb.Runner.LocalPlayer;
 
-        public static int GetSeed(this NetworkRunner runner) => runner.GetCustomProperty("s");
-        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.GetCustomProperty("s") + nb.Id.Behaviour);
+        public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Properties["s"];
+        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["s"] + nb.Id.Behaviour);
         public static int GetSeed(this NetworkBehaviour nb, int tick) => unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
 
         public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour
@@ -343,7 +343,7 @@ namespace Generic
         }
 
         public static Dictionary<NetworkRunner, Dictionary<string, SessionProperty>> SingleSessionProperties;
-        public static void SetupSingleCustomProperties(this NetworkRunner runner, Dictionary<string, SessionProperty> props)
+        public static void SetupSingleSessionProperties(this NetworkRunner runner, Dictionary<string, SessionProperty> props)
         {
             SingleSessionProperties ??= new();
             SingleSessionProperties.Add(runner, new());
@@ -373,7 +373,7 @@ namespace Generic
                 var isUpdateAll = true;
                 foreach (var prop in props)
                 {
-                    if (SingleSessionProperties[runner].ContainsKey(prop.Key)) SingleSessionProperties[runner][prop.Key] = prop.Value;
+                    if (SingleSessionProperties[runner].ContainsKey(prop.Key)) SingleSessionProperties[runner][prop.Key] = SessionProperty.Convert(prop.Value);
                     else isUpdateAll = false;
                 }
                 return isUpdateAll;
