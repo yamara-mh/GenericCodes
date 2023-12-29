@@ -198,8 +198,8 @@ namespace Generic
         public static bool IsStatedByMe(this NetworkBehaviour nb) => nb.Object.StateAuthority == nb.Runner.LocalPlayer;
         public static bool IsInputtedByMe(this NetworkBehaviour nb) => nb.Object.InputAuthority == nb.Runner.LocalPlayer;
 
-        public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Properties["s"];
-        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.SessionInfo.Properties["s"] + nb.Id.Behaviour);
+        public static int GetSeed(this NetworkRunner runner) => runner.GetCustomProperty("s");
+        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.GetCustomProperty("s") + nb.Id.Behaviour);
         public static int GetSeed(this NetworkBehaviour nb, int tick) => unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
 
         public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour
