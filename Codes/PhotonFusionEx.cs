@@ -392,29 +392,29 @@ namespace Generic
                 .Publish().RefCount();
 
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void FiringActionsWithStartTick(int elapsedTick, Action<int> action, params int[] timingTick)
+        public static void ActionsWithStartTick(int elapsedTick, Action<int> action, params int[] timingTick)
         {
             for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) action?.Invoke(i);
         }
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void FiringActionsWithStartTick(int elapsedTick, int[] timingTick, params Action<int>[] actions)
+        public static void ActionsWithStartTick(int elapsedTick, int[] timingTick, params Action<int>[] actions)
         {
             for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) actions[i]?.Invoke(i);
         }
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void FiringActionsWithStartTick(NetworkRunner runner, int startTick, int[] timingTicks, params Action<int>[] actions)
-            => FiringActionsWithStartTick(runner.Tick - startTick, timingTicks, actions);
+        public static void ActionsWithStartTick(NetworkRunner runner, int startTick, int[] timingTicks, params Action<int>[] actions)
+            => ActionsWithStartTick(runner.Tick - startTick, timingTicks, actions);
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void FiringActionsWithStartTick(NetworkRunner runner, int startTick, Action<int> action, params int[] timingTicks)
-            => FiringActionsWithStartTick(runner.Tick - startTick, action, timingTicks);
+        public static void ActionsWithStartTick(NetworkRunner runner, int startTick, Action<int> action, params int[] timingTicks)
+            => ActionsWithStartTick(runner.Tick - startTick, action, timingTicks);
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int durationTick, int[] timingTicks, params Action<int>[] actions)
-            => FiringActionsWithStartTick(runner.Tick - endTick + durationTick, timingTicks, actions);
-        public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int[] timingTicks, params Action<int>[] actions)
-            => FiringActionsWithStartTick(runner.Tick - endTick + timingTicks[timingTicks.Length - 1], timingTicks, actions);
+        public static void ActionsWithEndTick(NetworkRunner runner, int endTick, int durationTick, int[] timingTicks, params Action<int>[] actions)
+            => ActionsWithStartTick(runner.Tick - endTick + durationTick, timingTicks, actions);
+        public static void ActionsWithEndTick(NetworkRunner runner, int endTick, int[] timingTicks, params Action<int>[] actions)
+            => ActionsWithStartTick(runner.Tick - endTick + timingTicks[timingTicks.Length - 1], timingTicks, actions);
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void FiringActionsWithEndTick(NetworkRunner runner, int endTick, int lengthToEndTick, Action<int> action, params int[] timingTicks)
-            => FiringActionsWithStartTick(runner.Tick - endTick + lengthToEndTick, action, timingTicks);
+        public static void ActionsWithEndTick(NetworkRunner runner, int endTick, int lengthToEndTick, Action<int> action, params int[] timingTicks)
+            => ActionsWithStartTick(runner.Tick - endTick + lengthToEndTick, action, timingTicks);
 
 
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
