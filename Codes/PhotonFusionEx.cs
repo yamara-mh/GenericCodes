@@ -15,32 +15,33 @@ namespace Generic
     {
         #region Tick
 
-        public static int ToTick(this int second, NetworkRunner runner) => Mathf.CeilToInt(second / runner.DeltaTime);
-        public static int ToTick(this float second, NetworkRunner runner) => Mathf.CeilToInt(second / runner.DeltaTime);
-        public static int ToTick(this double second, NetworkRunner runner) => Mathf.CeilToInt((float)second / runner.DeltaTime);
-        public static float ToSecond(this int tick, NetworkRunner runner) => tick * runner.DeltaTime;
+        public static Tick ToTick(this int tick) => tick;
+        public static Tick ToTick(this int second, NetworkRunner runner) => Mathf.CeilToInt(second / runner.DeltaTime);
+        public static Tick ToTick(this float second, NetworkRunner runner) => Mathf.CeilToInt(second / runner.DeltaTime);
+        public static Tick ToTick(this double second, NetworkRunner runner) => Mathf.CeilToInt((float)second / runner.DeltaTime);
+        public static float ToSecond(this Tick tick, NetworkRunner runner) => tick * runner.DeltaTime;
 
-        public static int GetTickAfter(this NetworkRunner runner, float second) => runner.Tick + (int)(second / runner.DeltaTime);
+        public static Tick GetTickAfter(this NetworkRunner runner, float second) => runner.Tick + (int)(second / runner.DeltaTime);
 
-        public static float ElapsedTime(this NetworkRunner runner, int tick) => (runner.Tick - tick) * runner.DeltaTime;
-        public static float RemainingTime(this NetworkRunner runner, int tick) => -runner.ElapsedTime(tick);
+        public static float ElapsedTime(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) * runner.DeltaTime;
+        public static float RemainingTime(this NetworkRunner runner, Tick tick) => -runner.ElapsedTime(tick);
 
-        public static bool IsAt(this NetworkRunner runner, int tick) => runner.Tick == tick;
-        public static bool HasPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) > 0;
-        public static bool HasNotPassed(this NetworkRunner runner, int tick) => (runner.Tick - tick) <= 0;
-        public static bool HasReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) >= 0;
-        public static bool HasNotReached(this NetworkRunner runner, int tick) => (runner.Tick - tick) < 0;
+        public static bool IsAt(this NetworkRunner runner, Tick tick) => runner.Tick == tick;
+        public static bool HasPassed(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) > 0;
+        public static bool HasNotPassed(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) <= 0;
+        public static bool HasReached(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) >= 0;
+        public static bool HasNotReached(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) < 0;
 
 #if !FUSION2
-        public static double SimulationRenderTime(this NetworkRunner runner, int offsetTick = 0)
+        public static double SimulationRenderTime(this NetworkRunner runner, Tick offsetTick = 0)
             => runner.Simulation.StatePrevious.Tick - offsetTick + runner.Simulation.StateAlpha * runner.Simulation.DeltaTime;
-        public static double InterpolationRenderTime(this NetworkRunner runner, int offsetTick = 0)
+        public static double InterpolationRenderTime(this NetworkRunner runner, Tick offsetTick = 0)
             => (runner.IsServer ? runner.Tick : runner.Simulation.InterpFrom.Tick) - offsetTick + runner.Simulation.InterpAlpha * runner.Simulation.DeltaTime;
         public static float InterpolationSecond(this NetworkRunner runner)
             => runner.IsServer ? 0f : (runner.Simulation.InterpTo.Tick - runner.Simulation.InterpFrom.Tick) * runner.DeltaTime;
 #endif
 
-#endregion
+        #endregion
 
         #region TickTimer
 
@@ -200,7 +201,7 @@ namespace Generic
 
         public static int GetSeed(this NetworkRunner runner) => runner.GetCustomProperty("s");
         public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.GetCustomProperty("s") + nb.Id.Behaviour);
-        public static int GetSeed(this NetworkBehaviour nb, int tick) => unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
+        public static int GetSeed(this NetworkBehaviour nb, Tick tick) => unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
 
         public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour
            => runner.GetAllBehaviours<T>().FirstOrDefault();
@@ -391,34 +392,36 @@ namespace Generic
             => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null && r.IsShutdown)
                 .Publish().RefCount();
 
+        #region Tick
+
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(int elapsedTick, Action<int> action, params int[] timingTick)
+        public static void ActionsWithStartTick(Tick elapsedTick, Action<int> action, params Tick[] timingTick)
         {
             for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) action?.Invoke(i);
         }
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(int elapsedTick, int[] timingTick, params Action<int>[] actions)
+        public static void ActionsWithStartTick(Tick elapsedTick, Tick[] timingTick, params Action<int>[] actions)
         {
             for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) actions[i]?.Invoke(i);
         }
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(NetworkRunner runner, int startTick, int[] timingTicks, params Action<int>[] actions)
+        public static void ActionsWithStartTick(NetworkRunner runner, Tick startTick, Tick[] timingTicks, params Action<int>[] actions)
             => ActionsWithStartTick(runner.Tick - startTick, timingTicks, actions);
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(NetworkRunner runner, int startTick, Action<int> action, params int[] timingTicks)
+        public static void ActionsWithStartTick(NetworkRunner runner, Tick startTick, Action<int> action, params Tick[] timingTicks)
             => ActionsWithStartTick(runner.Tick - startTick, action, timingTicks);
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithEndTick(NetworkRunner runner, int endTick, int durationTick, int[] timingTicks, params Action<int>[] actions)
+        public static void ActionsWithEndTick(NetworkRunner runner, Tick endTick, Tick durationTick, Tick[] timingTicks, params Action<int>[] actions)
             => ActionsWithStartTick(runner.Tick - endTick + durationTick, timingTicks, actions);
-        public static void ActionsWithEndTick(NetworkRunner runner, int endTick, int[] timingTicks, params Action<int>[] actions)
+        public static void ActionsWithEndTick(NetworkRunner runner, Tick endTick, Tick[] timingTicks, params Action<int>[] actions)
             => ActionsWithStartTick(runner.Tick - endTick + timingTicks[timingTicks.Length - 1], timingTicks, actions);
         /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithEndTick(NetworkRunner runner, int endTick, int lengthToEndTick, Action<int> action, params int[] timingTicks)
+        public static void ActionsWithEndTick(NetworkRunner runner, Tick endTick, Tick lengthToEndTick, Action<int> action, params Tick[] timingTicks)
             => ActionsWithStartTick(runner.Tick - endTick + lengthToEndTick, action, timingTicks);
 
 
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(int elapsedTick, int[] durationTicks, params Action<int>[] actions)
+        public static void UpdateFlowByStart(Tick elapsedTick, Tick[] durationTicks, params Action<int>[] actions)
         {
             if (elapsedTick >= durationTicks.Last()) return;
             for (int i = 0; i < durationTicks.Length; i++)
@@ -429,7 +432,7 @@ namespace Generic
             }
         }
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(int elapsedTick, Action<(int index, int elapsedTick)> action, params int[] durationTicks)
+        public static void UpdateFlowByStart(Tick elapsedTick, Action<(int index, Tick elapsedTick)> action, params Tick[] durationTicks)
         {
             if (elapsedTick >= durationTicks.Last()) return;
             for (int i = 0; i < durationTicks.Length; i++)
@@ -440,22 +443,24 @@ namespace Generic
             }
         }
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(NetworkRunner runner, int startTick, int[] durationTicks, params Action<int>[] actions)
+        public static void UpdateFlowByStart(NetworkRunner runner, Tick startTick, Tick[] durationTicks, params Action<int>[] actions)
             => UpdateFlowByStart(runner.Tick - startTick, durationTicks, actions);
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(NetworkRunner runner, int startTick, Action<(int index, int elapsedTick)> action, params int[] durationTicks)
+        public static void UpdateFlowByStart(NetworkRunner runner, Tick startTick, Action<(int index, Tick elapsedTick)> action, params Tick[] durationTicks)
             => UpdateFlowByStart(runner.Tick - startTick, action, durationTicks);
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByComplete(NetworkRunner runner, int completeTick, int[] durationTicks, params Action<int>[] actions)
+        public static void UpdateFlowByComplete(NetworkRunner runner, Tick completeTick, Tick[] durationTicks, params Action<int>[] actions)
         {
             if (runner.Tick > completeTick) return;
             UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), durationTicks, actions);
         }
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByComplete(NetworkRunner runner, int completeTick, Action<(int index, int elapsedTick)> action, params int[] durationTicks)
+        public static void UpdateFlowByComplete(NetworkRunner runner, Tick completeTick, Action<(int index, Tick elapsedTick)> action, params Tick[] durationTicks)
         {
             if (runner.Tick > completeTick) return;
             UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), action, durationTicks);
         }
+
+#endregion
     }
 }
