@@ -5,7 +5,7 @@ using UnityEngine.InputSystem.OnScreen;
 using Generic;
 using System.Collections.Generic;
 
-// Note: You can handle the flick direction by uncommenting or replacing it.
+// Note: You can handle the swipe direction by uncommenting or replacing it.
 [AddComponentMenu("Input/On-Screen Swipe")]
 public class OnScreenSwipe : OnScreenControl, IPointerUpHandler, IDragHandler
 {
