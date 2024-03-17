@@ -30,6 +30,8 @@ public class OnScreenStickCustom : OnScreenControl, IPointerDownHandler, IPointe
     {
         bgImageTransform = bgImage.transform;
         stickImageTransform = stickImage.transform;
+        bgImage.enabled = false;
+        stickImage.enabled = false;
     }
 
     public void OnPointerDown(PointerEventData eventData)
