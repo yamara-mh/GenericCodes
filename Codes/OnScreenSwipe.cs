@@ -20,8 +20,8 @@ public class OnScreenSwipe : OnScreenControl, IPointerUpHandler, IDragHandler
     }
 
 
-    [SerializeField] private float swipeMinRangeThreshold = 50f;
-    [SerializeField] private double swipeProcessingDuration = 0.1d;
+    [SerializeField] private float minRange = 50f;
+    [SerializeField] private double detectionDuration = 0.1d;
     // [SerializeField] private bool normalized = true;
 
     private Queue<(Vector2 pos, double time)> dragQueue = new();
@@ -29,7 +29,7 @@ public class OnScreenSwipe : OnScreenControl, IPointerUpHandler, IDragHandler
     public void OnPointerUp(PointerEventData data)
     {
         CleanQueue();
-        if (dragQueue.TryPeek(out var item) && item.pos.SqrMagnitude(data.position) >= swipeMinRangeThreshold * swipeMinRangeThreshold)
+        if (dragQueue.TryPeek(out var item) && item.pos.SqrMagnitude(data.position) >= minRange * minRange)
         {
             SendValueToControl(1f);
             SendValueToControl(0f);
@@ -49,7 +49,7 @@ public class OnScreenSwipe : OnScreenControl, IPointerUpHandler, IDragHandler
     {
         while (dragQueue.TryPeek(out var item))
         {
-            if (Time.realtimeSinceStartupAsDouble - item.time > swipeProcessingDuration) dragQueue.Dequeue();
+            if (Time.realtimeSinceStartupAsDouble - item.time > detectionDuration) dragQueue.Dequeue();
             else break;
         }
     }
