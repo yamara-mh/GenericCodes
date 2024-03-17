@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.OnScreen;
-using Generic;
 using System.Collections.Generic;
 
 [AddComponentMenu("Input/On-Screen Swipe")]
@@ -29,7 +28,7 @@ public class OnScreenSwipe : OnScreenControl, IPointerUpHandler, IDragHandler
     public void OnPointerUp(PointerEventData data)
     {
         CleanQueue();
-        if (dragQueue.TryPeek(out var item) && item.pos.SqrMagnitude(data.position) >= minRange * minRange)
+        if (dragQueue.TryPeek(out var item) && (item.pos - data.position).sqrMagnitude >= minRange * minRange)
         {
             SendValueToControl(1f);
             SendValueToControl(0f);
