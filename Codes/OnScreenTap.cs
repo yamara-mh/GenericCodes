@@ -25,7 +25,7 @@ public class OnScreenTap : OnScreenControl, IPointerDownHandler, IPointerUpHandl
     public void OnPointerUp(PointerEventData data)
     {
         if (Time.realtimeSinceStartupAsDouble - onPointerDownTime <= maxDuration &&
-            (data.pressPosition - data.position).sqrMagnitude >= maxRange * maxRange)
+            (data.pressPosition - data.position).sqrMagnitude <= maxRange * maxRange)
         {
             SendValueToControl(1f);
             SendValueToControl(0f);
