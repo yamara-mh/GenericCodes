@@ -19,8 +19,8 @@ public class OnScreenFlick : OnScreenControl, IPointerDownHandler, IPointerUpHan
     }
 
 
-    [SerializeField] private float flickLengthThreshold = 50f;
-    [SerializeField] private double flickDurationThreshold = 0.25d;
+    [SerializeField] private float minRange = 50f;
+    [SerializeField] private double maxDuration = 0.25d;
     // [SerializeField] private bool normalized = true;
 
     private double onPointerDownTime;
@@ -28,9 +28,8 @@ public class OnScreenFlick : OnScreenControl, IPointerDownHandler, IPointerUpHan
     public void OnPointerDown(PointerEventData eventData) => onPointerDownTime = Time.realtimeSinceStartupAsDouble;
     public void OnPointerUp(PointerEventData data)
     {
-        data.azimuthAngle
-        if (Time.realtimeSinceStartupAsDouble - onPointerDownTime <= flickDurationThreshold &&
-            (data.pressPosition - data.position).sqrMagnitude >= flickLengthThreshold * flickLengthThreshold)
+        if (Time.realtimeSinceStartupAsDouble - onPointerDownTime <= maxDuration &&
+            (data.pressPosition - data.position).sqrMagnitude >= minRange * minRange)
         {
             SendValueToControl(1f);
             SendValueToControl(0f);
