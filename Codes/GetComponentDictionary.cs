@@ -44,7 +44,7 @@ namespace Generic
             if (removeOnDestroyGameObject == false) return;
             var gameObject = component.gameObject;
             await gameObject.OnDestroyAsync();
-            instance?.Remove(gameObject);
+            TryRemove(gameObject);
         }
 #elif GetComponentDictionary_USE_UNIRX
         public static void Add(C component, bool removeOnDestroyGameObject = true)
@@ -52,7 +52,7 @@ namespace Generic
             Instance.Add(component.gameObject, component);
             if (removeOnDestroyGameObject == false) return;
             var gameObject = component.gameObject;
-            gameObject.OnDestroyAsObservable().Subscribe(_ => instance?.Remove(gameObject));
+            gameObject.OnDestroyAsObservable().Subscribe(_ => TryRemove(gameObject));
         }
 #else
         public static void Add(C component) => Instance.Add(component.gameObject, component);
@@ -63,8 +63,13 @@ namespace Generic
         public static void Remove(C component) => Instance.Remove(component.gameObject);
         public static bool TryRemove(C component)
         {
-            if (component == null || component.gameObject == null) return false;
-            instance?.Remove(component.gameObject);
+            if (component == null) return false;
+            return TryRemove(component.gameObject);
+        }
+        public static bool TryRemove(GameObject gameObject)
+        {
+            if (gameObject == null || instance == null) return false;
+            instance.Remove(gameObject);
             return true;
         }
 
