@@ -127,6 +127,12 @@ namespace Generic
         }
         public static void ReplaceAll<T>(this NetworkArray<T> array, T value) => ReplaceAll(array, v => value);
 
+
+        public static T Get<T>(this NetworkArray<T> array, int capacity1, int index1, int index2)
+            => array.Get(capacity1 * index1 + index2);
+        public static T Set<T>(NetworkArray<T> array, T value, int capacity1, int index1, int index2)
+            => array.Set(capacity1 * index1 + index2, value);
+
 #if FUSION2
         public static void OnValueChanged<T>(this NetworkArray<T> currentArray, NetworkArrayReadOnly<T> prevArray, Action<T> action) where T : IEquatable<T>
         {
@@ -358,7 +364,7 @@ namespace Generic
         }
         public static IReadOnlyDictionary<string, SessionProperty> GetCustomProperties(this NetworkRunner runner)
         {
-            if (runner.GameMode == GameMode.Single) return SingleSessionProperties[runner]; 
+            if (runner.GameMode == GameMode.Single) return SingleSessionProperties[runner];
             else return runner.SessionInfo.Properties;
         }
         public static SessionProperty GetCustomProperty(this NetworkRunner runner, string key)
@@ -421,7 +427,7 @@ namespace Generic
 
 
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(Tick elapsedTick, Tick[] durationTicks, params Action<int>[] actions)
+        public static void UpdateFlowByStart(Tick elapsedTick, Tick[] durationTicks, params Action<Tick>[] actions)
         {
             if (elapsedTick >= durationTicks.Last()) return;
             for (int i = 0; i < durationTicks.Length; i++)
@@ -443,13 +449,13 @@ namespace Generic
             }
         }
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(NetworkRunner runner, Tick startTick, Tick[] durationTicks, params Action<int>[] actions)
+        public static void UpdateFlowByStart(NetworkRunner runner, Tick startTick, Tick[] durationTicks, params Action<Tick>[] actions)
             => UpdateFlowByStart(runner.Tick - startTick, durationTicks, actions);
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
         public static void UpdateFlowByStart(NetworkRunner runner, Tick startTick, Action<(int index, Tick elapsedTick)> action, params Tick[] durationTicks)
             => UpdateFlowByStart(runner.Tick - startTick, action, durationTicks);
         /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByComplete(NetworkRunner runner, Tick completeTick, Tick[] durationTicks, params Action<int>[] actions)
+        public static void UpdateFlowByComplete(NetworkRunner runner, Tick completeTick, Tick[] durationTicks, params Action<Tick>[] actions)
         {
             if (runner.Tick > completeTick) return;
             UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), durationTicks, actions);
@@ -461,6 +467,6 @@ namespace Generic
             UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), action, durationTicks);
         }
 
-#endregion
+        #endregion
     }
 }
