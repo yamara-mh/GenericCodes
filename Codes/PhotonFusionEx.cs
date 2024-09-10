@@ -25,7 +25,9 @@ namespace Generic
 
         public static Tick GetTickAfter(this NetworkRunner runner, float second) => runner.Tick + (int)(second / runner.DeltaTime);
 
+        public static float ElapsedTick(this NetworkRunner runner, Tick tick) => runner.Tick - tick;
         public static float ElapsedTime(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) * runner.DeltaTime;
+        public static float RemainingTick(this NetworkRunner runner, Tick tick) => tick - runner.Tick;
         public static float RemainingTime(this NetworkRunner runner, Tick tick) => -runner.ElapsedTime(tick);
 
         public static bool IsAt(this NetworkRunner runner, Tick tick) => runner.Tick == tick;
@@ -198,10 +200,10 @@ namespace Generic
 
         #region NetworkBehaviour, NetworkObject
 
-        public static bool IsStatedByMe(this NetworkObject no) => no.StateAuthority == no.Runner.LocalPlayer;
-        public static bool IsInputtedByMe(this NetworkObject no) => no.InputAuthority == no.Runner.LocalPlayer;
-        public static bool IsStatedByMe(this NetworkBehaviour nb) => nb.Object.StateAuthority == nb.Runner.LocalPlayer;
-        public static bool IsInputtedByMe(this NetworkBehaviour nb) => nb.Object.InputAuthority == nb.Runner.LocalPlayer;
+        public static bool IsAtSnapshot(this NetworkObject no) => no.LastReceiveTick == no.Runner.Tick;
+        public static bool IsAtSnapshot(this NetworkBehaviour nb) => nb.Object.LastReceiveTick == nb.Runner.Tick;
+        public static bool IsAtInput(this NetworkObject no) => no.HasInputAuthority ? no.Runner.IsForward : no.IsAtSnapshot();
+        public static bool IsAtInput(this NetworkBehaviour nb) => nb.HasInputAuthority ? nb.Runner.IsForward : nb.IsAtSnapshot();
 
         // MEMO : Please change the method of obtaining the random number seed as appropriate for your game.
         public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Name.GetHashCode();
@@ -303,11 +305,6 @@ namespace Generic
 
         public static bool IsHost(this PlayerRef playerRef, NetworkRunner runner) => playerRef == Host(runner);
         public static bool IsMe(this PlayerRef playerRef, NetworkRunner runner) => playerRef == runner.LocalPlayer;
-
-        public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.InputAuthority;
-        public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkObject no) => playerRef == no.StateAuthority;
-        public static bool HasInputAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.InputAuthority;
-        public static bool HasStateAuthorityTo(this PlayerRef playerRef, NetworkBehaviour nb) => playerRef == nb.Object.StateAuthority;
 
         /// <summary>
         /// Normally RpcInfo.Source will be None when Host/Server calls RPC.
