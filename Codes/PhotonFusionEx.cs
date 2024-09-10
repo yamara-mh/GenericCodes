@@ -1,11 +1,13 @@
+// #define FUSION1
+
 using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks.Triggers;
 using Fusion;
+using R3;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using UniRx;
-using UniRx.Triggers;
 using UnityEngine;
 using static Fusion.NetworkBehaviour;
 
@@ -27,12 +29,10 @@ namespace Generic
         public static float RemainingTime(this NetworkRunner runner, Tick tick) => -runner.ElapsedTime(tick);
 
         public static bool IsAt(this NetworkRunner runner, Tick tick) => runner.Tick == tick;
-        public static bool HasPassed(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) > 0;
-        public static bool HasNotPassed(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) <= 0;
         public static bool HasReached(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) >= 0;
         public static bool HasNotReached(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) < 0;
 
-#if !FUSION2
+#if FUSION1
         public static double SimulationRenderTime(this NetworkRunner runner, Tick offsetTick = 0)
             => runner.Simulation.StatePrevious.Tick - offsetTick + runner.Simulation.StateAlpha * runner.Simulation.DeltaTime;
         public static double InterpolationRenderTime(this NetworkRunner runner, Tick offsetTick = 0)
@@ -44,8 +44,7 @@ namespace Generic
         #endregion
 
         #region TickTimer
-
-        public static IObservable<Unit> OnCompleted(this TickTimer tickTimer, NetworkRunner runner)
+        public static Observable<Unit> OnCompleted(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Select(_ => tickTimer.Expired(runner))
                 .DistinctUntilChanged()
@@ -53,25 +52,24 @@ namespace Generic
                 .Select(_ => Unit.Default)
                 .Publish().RefCount();
 
-        public static IObservable<Unit> OnUpdated(this TickTimer tickTimer, NetworkRunner runner)
+        public static Observable<Unit> OnUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate().Where(_ => !tickTimer.Expired(runner)).Select(_ => Unit.Default)
                 .Publish().RefCount();
 
-        public static IObservable<float> OnRunnerUpdated(this TickTimer tickTimer, NetworkRunner runner)
+        public static Observable<float> OnRunnerUpdated(this TickTimer tickTimer, NetworkRunner runner)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
                 .Select(_ => tickTimer.RemainingTime(runner).Value)
                 .DistinctUntilChanged()
                 .Publish().RefCount();
 
-        public static IObservable<int> OnCountDowned(this TickTimer tickTimer, NetworkRunner runner, int minCount = 1, int maxCount = int.MaxValue)
+        public static Observable<int> OnCountDowned(this TickTimer tickTimer, NetworkRunner runner, int minCount = 1, int maxCount = int.MaxValue)
             => Observable.EveryUpdate()
                 .Where(_ => !tickTimer.Expired(runner))
                 .Select(_ => Mathf.CeilToInt(tickTimer.RemainingTime(runner).Value))
                 .DistinctUntilChanged()
                 .Where(count => count >= minCount && count <= maxCount)
                 .Publish().RefCount();
-
         #endregion
 
         #region Network Array, LinkedList, Dictionary
@@ -133,7 +131,7 @@ namespace Generic
         public static T Set<T>(NetworkArray<T> array, T value, int capacity1, int index1, int index2)
             => array.Set(capacity1 * index1 + index2, value);
 
-#if FUSION2
+#if !FUSION1
         public static void OnValueChanged<T>(this NetworkArray<T> currentArray, NetworkArrayReadOnly<T> prevArray, Action<T> action) where T : IEquatable<T>
         {
             for (int i = 0; i < prevArray.Length; i++)
@@ -205,8 +203,9 @@ namespace Generic
         public static bool IsStatedByMe(this NetworkBehaviour nb) => nb.Object.StateAuthority == nb.Runner.LocalPlayer;
         public static bool IsInputtedByMe(this NetworkBehaviour nb) => nb.Object.InputAuthority == nb.Runner.LocalPlayer;
 
-        public static int GetSeed(this NetworkRunner runner) => runner.GetCustomProperty("s");
-        public static int GetSeed(this NetworkBehaviour nb) => unchecked((int)nb.Runner.GetCustomProperty("s") + nb.Id.Behaviour);
+        // MEMO : Please change the method of obtaining the random number seed as appropriate for your game.
+        public static int GetSeed(this NetworkRunner runner) => runner.SessionInfo.Name.GetHashCode();
+        public static int GetSeed(this NetworkBehaviour nb) => unchecked(nb.Runner.GetSeed() + nb.Id.Behaviour);
         public static int GetSeed(this NetworkBehaviour nb, Tick tick) => unchecked((nb.Runner.GetSeed() + (nb.Id.Behaviour + 1) * tick) | 1);
 
         public static T FindBehaviour<T>(this NetworkRunner runner) where T : SimulationBehaviour
@@ -243,7 +242,7 @@ namespace Generic
             return default;
         }
 
-#if FUSION2
+#if !FUSION1
         public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, string n1, Action a1) where NB : NetworkBehaviour
             => cd.OnValueChanged(nb, (n1, a1));
         public static void OnValueChanged<NB>(this ChangeDetector cd, NB nb, string n1, Action a1, string n2, Action a2) where NB : NetworkBehaviour
@@ -295,7 +294,7 @@ namespace Generic
 
         #region PlayerRef
 
-#if FUSION2
+#if !FUSION1
         public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : PlayerRef.FromIndex(0);
 #else
         public static PlayerRef Host(this NetworkRunner runner) => runner.GameMode == GameMode.Server ? PlayerRef.None : runner.Simulation.Config.DefaultPlayers - 1;
@@ -350,17 +349,19 @@ namespace Generic
         }
 
         public static Dictionary<NetworkRunner, Dictionary<string, SessionProperty>> SingleSessionProperties;
-        public static void SetupSingleSessionProperties(this NetworkRunner runner, Dictionary<string, SessionProperty> props)
+        public static async void SetupSingleSessionProperties(this NetworkRunner runner, Dictionary<string, SessionProperty> props)
         {
             SingleSessionProperties ??= new();
             SingleSessionProperties.Add(runner, new());
-            runner.OnDestroyAsObservable().Subscribe(_ => SingleSessionProperties.Remove(runner));
 
             foreach (var pair in props)
             {
                 if (SingleSessionProperties[runner].ContainsKey(pair.Key)) SingleSessionProperties[runner][pair.Key] = pair.Value;
                 else SingleSessionProperties[runner].Add(pair.Key, pair.Value);
             }
+
+            await runner.OnDestroyAsync();
+            SingleSessionProperties.Remove(runner);
         }
         public static IReadOnlyDictionary<string, SessionProperty> GetCustomProperties(this NetworkRunner runner)
         {
@@ -388,85 +389,17 @@ namespace Generic
             return runner.SessionInfo.UpdateCustomProperties(props);
         }
 
-        public static IObservable<NetworkRunner> OnCreatedRunner()
-            => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null)
+        public static Observable<NetworkRunner> OnCreatedRunner(FrameProvider frameProvider, CancellationToken token)
+            => Observable.EveryUpdate(frameProvider, NetworkRunner.Instances.FirstOrDefault().destroyCancellationToken)
+                .Select(_ => NetworkRunner.Instances.FirstOrDefault()).Where(r => r != null).Take(1)
                 .Publish().RefCount();
-        public static IObservable<NetworkRunner> OnBeganRunner()
-            => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null && r.Tick > 0)
+        public static Observable<NetworkRunner> OnBeganRunner(FrameProvider frameProvider, CancellationToken token)
+            => Observable.EveryUpdate(frameProvider, NetworkRunner.Instances.FirstOrDefault().destroyCancellationToken)
+                .Select(_ => NetworkRunner.Instances.FirstOrDefault()).Where(r => r != null && r.Tick > 0).Take(1)
                 .Publish().RefCount();
-        public static IObservable<NetworkRunner> OnShotDownedRunner()
-            => Observable.EveryUpdate().Select(_ => NetworkRunner.Instances.FirstOrDefault()).First(r => r != null && r.IsShutdown)
+        public static Observable<NetworkRunner> OnShotDownedRunner(FrameProvider frameProvider, CancellationToken token)
+            => Observable.EveryUpdate(frameProvider, NetworkRunner.Instances.FirstOrDefault().destroyCancellationToken)
+                .Select(_ => NetworkRunner.Instances.FirstOrDefault()).Where(r => r != null && r.IsShutdown).Take(1)
                 .Publish().RefCount();
-
-        #region Tick
-
-        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(Tick elapsedTick, Action<int> action, params Tick[] timingTick)
-        {
-            for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) action?.Invoke(i);
-        }
-        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(Tick elapsedTick, Tick[] timingTick, params Action<int>[] actions)
-        {
-            for (int i = 0; i < timingTick.Length; i++) if (elapsedTick == timingTick[i]) actions[i]?.Invoke(i);
-        }
-        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(NetworkRunner runner, Tick startTick, Tick[] timingTicks, params Action<int>[] actions)
-            => ActionsWithStartTick(runner.Tick - startTick, timingTicks, actions);
-        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithStartTick(NetworkRunner runner, Tick startTick, Action<int> action, params Tick[] timingTicks)
-            => ActionsWithStartTick(runner.Tick - startTick, action, timingTicks);
-        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithEndTick(NetworkRunner runner, Tick endTick, Tick durationTick, Tick[] timingTicks, params Action<int>[] actions)
-            => ActionsWithStartTick(runner.Tick - endTick + durationTick, timingTicks, actions);
-        public static void ActionsWithEndTick(NetworkRunner runner, Tick endTick, Tick[] timingTicks, params Action<int>[] actions)
-            => ActionsWithStartTick(runner.Tick - endTick + timingTicks[timingTicks.Length - 1], timingTicks, actions);
-        /// <summary> This function simplifies the implementation of firing multiple processes with one Tick. </summary>
-        public static void ActionsWithEndTick(NetworkRunner runner, Tick endTick, Tick lengthToEndTick, Action<int> action, params Tick[] timingTicks)
-            => ActionsWithStartTick(runner.Tick - endTick + lengthToEndTick, action, timingTicks);
-
-
-        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(Tick elapsedTick, Tick[] durationTicks, params Action<Tick>[] actions)
-        {
-            if (elapsedTick >= durationTicks.Last()) return;
-            for (int i = 0; i < durationTicks.Length; i++)
-            {
-                if (elapsedTick >= durationTicks[i]) continue;
-                actions[i]?.Invoke(i == 0 ? elapsedTick : elapsedTick - durationTicks[i - 1]);
-                return;
-            }
-        }
-        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(Tick elapsedTick, Action<(int index, Tick elapsedTick)> action, params Tick[] durationTicks)
-        {
-            if (elapsedTick >= durationTicks.Last()) return;
-            for (int i = 0; i < durationTicks.Length; i++)
-            {
-                if (elapsedTick >= durationTicks[i]) continue;
-                action?.Invoke((i, i == 0 ? elapsedTick : elapsedTick - durationTicks[i - 1]));
-                return;
-            }
-        }
-        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(NetworkRunner runner, Tick startTick, Tick[] durationTicks, params Action<Tick>[] actions)
-            => UpdateFlowByStart(runner.Tick - startTick, durationTicks, actions);
-        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByStart(NetworkRunner runner, Tick startTick, Action<(int index, Tick elapsedTick)> action, params Tick[] durationTicks)
-            => UpdateFlowByStart(runner.Tick - startTick, action, durationTicks);
-        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByComplete(NetworkRunner runner, Tick completeTick, Tick[] durationTicks, params Action<Tick>[] actions)
-        {
-            if (runner.Tick > completeTick) return;
-            UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), durationTicks, actions);
-        }
-        /// <summary> This function simplifies the implementation of sequentially executing processes with one Tick. </summary>
-        public static void UpdateFlowByComplete(NetworkRunner runner, Tick completeTick, Action<(int index, Tick elapsedTick)> action, params Tick[] durationTicks)
-        {
-            if (runner.Tick > completeTick) return;
-            UpdateFlowByStart(runner.Tick - completeTick + durationTicks.Last(), action, durationTicks);
-        }
-
-        #endregion
     }
 }
