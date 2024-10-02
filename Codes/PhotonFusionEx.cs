@@ -25,9 +25,9 @@ namespace Generic
 
         public static Tick GetTickAfter(this NetworkRunner runner, float second) => runner.Tick + (int)(second / runner.DeltaTime);
 
-        public static float ElapsedTick(this NetworkRunner runner, Tick tick) => runner.Tick - tick;
+        public static int ElapsedTick(this NetworkRunner runner, Tick tick) => runner.Tick - tick;
         public static float ElapsedTime(this NetworkRunner runner, Tick tick) => (runner.Tick - tick) * runner.DeltaTime;
-        public static float RemainingTick(this NetworkRunner runner, Tick tick) => tick - runner.Tick;
+        public static int RemainingTick(this NetworkRunner runner, Tick tick) => tick - runner.Tick;
         public static float RemainingTime(this NetworkRunner runner, Tick tick) => -runner.ElapsedTime(tick);
 
         public static bool IsAt(this NetworkRunner runner, Tick tick) => runner.Tick == tick;
