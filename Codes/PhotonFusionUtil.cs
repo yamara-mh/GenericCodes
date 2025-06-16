@@ -212,6 +212,31 @@ namespace Generic
             return false;
         }
 
+        public static void SetAllPlayerAlwaysInterested(this NetworkRunner runner, NetworkObject no, bool alwaysInterested)
+        {
+            foreach (var player in runner.ActivePlayers) runner.SetPlayerAlwaysInterested(player, no, alwaysInterested);
+        }
+
+        private static Dictionary<NetworkRunner, Dictionary<NetworkObject, Dictionary<PlayerRef, int>>> alwaysInterestedDict = new();
+        public static void SetPlayerAlwaysInterested(this NetworkObject no, PlayerRef player, bool alwaysInterested)
+        {
+            var runner = no.Runner;
+            var count = alwaysInterested ? 1 : -1;
+            if (alwaysInterestedDict.ContainsKey(runner) == false) alwaysInterestedDict.Add(runner, new());
+            if (alwaysInterestedDict[runner].ContainsKey(no) == false) alwaysInterestedDict[runner].Add(no, new());
+            if (alwaysInterestedDict[runner][no].ContainsKey(player) == false) alwaysInterestedDict[runner][no].Add(player, count);
+            else alwaysInterestedDict[runner][no][player] += count;
+        }
+        public static void CleanAllInterestedCount() => alwaysInterestedDict.Clear();
+        public static void CleanInterestedCount(this NetworkRunner runner)
+        {
+            if (alwaysInterestedDict.TryGetValue(runner, out var dict)) dict.Clear();
+        }
+        public static void CleanInterestedCount(this NetworkObject no)
+        {
+            if (alwaysInterestedDict.TryGetValue(no.Runner, out var dict) &&
+                dict.TryGetValue(no, out var dict2)) dict.Clear();
+        }
         #endregion
 
         #region Compressed
@@ -221,6 +246,12 @@ namespace Generic
         public static float SqrMagnitude(this Vector3Compressed v) => v.X * v.X + v.Y * v.Y + v.Z * v.Z;
         public static float Magnitude(this Vector2Compressed v) => Mathf.Sqrt(SqrMagnitude(v));
         public static float Magnitude(this Vector3Compressed v) => Mathf.Sqrt(SqrMagnitude(v));
+
+        public static Vector2 ToDirection2D(this FloatCompressed v)
+            => v == 0f ? Vector2.zero : Quaternion.AngleAxis(v - 1f, Vector3.forward) * Vector2.up;
+        public static FloatCompressed DirectionToFloatCompressed(this Vector2 v, float threshold = 0.1f)
+            => v.sqrMagnitude < threshold ? 0f : Vector2.SignedAngle(Vector2.up, v) + 1f;
+        public static bool IsValidAsDirection2D(this FloatCompressed v) => v != 0f;
         #endregion
 
         #region SessionProperty
