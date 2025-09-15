@@ -83,9 +83,15 @@ namespace Extensions
             return audioSource;
         }
 
-        public static AudioSource SetOutput(this AudioSource audioSource, AudioMixerGroup group)
+        public static AudioSource SetMixer(this AudioSource audioSource, AudioMixerGroup group)
         {
             audioSource.outputAudioMixerGroup = group;
+            return audioSource;
+        }
+        public static AudioSource SetMixerFrom(this AudioSource audioSource, AudioSource target)
+        {
+            if (audioSource == null) return null;
+            audioSource.outputAudioMixerGroup = target.outputAudioMixerGroup;
             return audioSource;
         }
 
