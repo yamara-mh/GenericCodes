@@ -4,7 +4,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// 最後に Run した UniTask のみ処理を継続し、過去の処理はキャンセル・破棄するクラス
+/// 最後に実行した UniTask のみ処理を継続し、過去に実行した UniTask をキャンセル・破棄するクラス
 /// </summary>
 public class LatestTaskRunner<HANDLE> : IDisposable
 {
