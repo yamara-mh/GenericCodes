@@ -34,6 +34,7 @@ public class StandardButton : MonoBehaviour, IPointerClickHandler, IPointerDownH
 
     private Vector3 _scale;
     private Vector4 _padding;
+    /// <summary>同時押し対策</summary>
     private int? activePointerId = null;
 
     private Subject<PointerEventData> onClick = new();
