@@ -14,7 +14,7 @@ public class StandardButton : MonoBehaviour, IPointerClickHandler, IPointerDownH
     private const float DefaultRaycastPaddingMargin = -15f; // 押下判定を少し広げる
 
     // コンポーネント追加時、ボタンの名前に含まれる文字列に応じてSEを設定
-    private readonly string[] SelectSeKeywords = new string[] { "ok", "next", "confirm", "select" };
+    private readonly string[] SelectSeKeywords = new string[] { "ok", "next", "confirm", "start", "play" };
     private readonly string[] CancelSeKeywords = new string[] { "close", "back", "cancel" };
     private readonly string[] ToggleSeKeywords = new string[] { "tab", "toggle", "switch" };
 
