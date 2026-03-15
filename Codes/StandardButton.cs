@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// 通常のボタンを実装するコンポーネント
 /// 押下中はサイズが変わり、クリックすると音が鳴る
 /// </summary>
-public class StandardButton : MonoBehaviour, IPointerClickHandler, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
+public class StandardButton : UIBehaviour, IPointerClickHandler, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
 {
     private const float ZoomRate = 0.95f; // 押下中にサイズを変える
     private const float DefaultRaycastPaddingMargin = -15f; // 押下判定を少し広げる
@@ -40,8 +40,9 @@ public class StandardButton : MonoBehaviour, IPointerClickHandler, IPointerDownH
     private Subject<PointerEventData> onClick = new();
     public Observable<PointerEventData> OnClick => onClick;
 
-    private void Awake()
+    protected override void Awake()
     {
+        base.Awake();
         _scale = zoomTarget.localScale;
         _padding = image.raycastPadding;
     }
@@ -90,8 +91,9 @@ public class StandardButton : MonoBehaviour, IPointerClickHandler, IPointerDownH
     }
 
 #if UNITY_EDITOR
-    private void OnValidate()
+    protected override void OnValidate()
     {
+        base.OnValidate();
         if (image == null)
         {
             TryGetComponent(out image);
