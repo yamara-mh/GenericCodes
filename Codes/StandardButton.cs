@@ -14,7 +14,7 @@ public class StandardButton : UIBehaviour, IPointerClickHandler, IPointerDownHan
     private const float DefaultRaycastPaddingMargin = -15f; // 押下判定を少し広げる
 
     // コンポーネント追加時、ボタンの名前に含まれる文字列に応じてSEを設定
-    private readonly string[] SelectSeKeywords = new string[] { "ok", "next", "confirm", "start", "play" };
+    private readonly string[] SelectSeKeywords = new string[] { "ok", "next", "confirm", "select" };
     private readonly string[] CancelSeKeywords = new string[] { "close", "back", "cancel" };
     private readonly string[] ToggleSeKeywords = new string[] { "tab", "toggle", "switch" };
 
@@ -32,10 +32,10 @@ public class StandardButton : UIBehaviour, IPointerClickHandler, IPointerDownHan
     [Header("Editor が自動で設定します")]
     [SerializeField] private bool needAdjustmentPaddingOnZoom = true;
 
-    private Vector3 _scale;
-    private Vector4 _padding;
     /// <summary>同時押し対策</summary>
     private int? activePointerId = null;
+    private Vector3 _scale;
+    private Vector4 _padding;
 
     private Subject<PointerEventData> onClick = new();
     public Observable<PointerEventData> OnClick => onClick;
@@ -45,6 +45,19 @@ public class StandardButton : UIBehaviour, IPointerClickHandler, IPointerDownHan
         base.Awake();
         _scale = zoomTarget.localScale;
         _padding = image.raycastPadding;
+    }
+    protected override void OnDisable()
+    {
+        base.OnDisable();
+        activePointerId = null;
+    }
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus) activePointerId = null;
+    }
+    private void OnApplicationPause(bool pause)
+    {
+        if (pause) activePointerId = null;
     }
     public void OnPointerClick(PointerEventData eventData)
     {
@@ -60,7 +73,6 @@ public class StandardButton : UIBehaviour, IPointerClickHandler, IPointerDownHan
     public void OnPointerDown(PointerEventData eventData)
     {
         if (interactable == false) return;
-
         if (activePointerId != null && activePointerId != eventData.pointerId) return;
         activePointerId = eventData.pointerId;
 
@@ -83,6 +95,7 @@ public class StandardButton : UIBehaviour, IPointerClickHandler, IPointerDownHan
     public void OnPointerUp(PointerEventData eventData)
     {
         if (activePointerId == eventData.pointerId) activePointerId = null;
+
         if (zoomFlag)
         {
             if (needAdjustmentPaddingOnZoom) image.raycastPadding = _padding;
@@ -96,9 +109,11 @@ public class StandardButton : UIBehaviour, IPointerClickHandler, IPointerDownHan
         base.OnValidate();
         if (image == null)
         {
-            TryGetComponent(out image);
-            image.raycastTarget = true;
-            image.raycastPadding = Vector4.one * DefaultRaycastPaddingMargin;
+            if (TryGetComponent(out image))
+            {
+                image.raycastTarget = true;
+                image.raycastPadding = Vector4.one * DefaultRaycastPaddingMargin;
+            }
 
             name = name.ToLower();
             if (SelectSeKeywords.Any(k => k.Contains(name))) se = SeEnum.Select;
